@@ -67,7 +67,6 @@ class Datacube:
             self._create_ncml()
         else:
             if self._aggregation is None:
-                # In case aggregation missing for some reason
                 self._aggregation = etree.SubElement(
                     self._root, "aggregation", dimName=self.dim_name, type=self.agg_type
                 )
@@ -78,6 +77,10 @@ class Datacube:
 
         # Add netcdf element
         etree.SubElement(self._aggregation, "netcdf", location=filepath, ncoords="1")
+
+        # Ensure proper formatting
+        etree.indent(self._tree, space="  ")
+
         self._tree.write(self.ncml_path, pretty_print=True, xml_declaration=True, encoding="utf-8")
 
     def remove_product(self, filepath):
