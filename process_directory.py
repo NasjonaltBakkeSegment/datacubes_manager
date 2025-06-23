@@ -32,8 +32,14 @@ def process_directory(ncml_base_path, nc_root_dir):
                 continue
             year = date_match.group(1)[:4]
 
+            # Extract processing level from 8th to 10th characters
+            if len(filename) < 10:
+                print(f"Filename too short to extract level: {filename}")
+                continue
+            level = filename[7:10]
+
             # Build NCML path
-            ncml_path = os.path.join(ncml_base_path, tile, year, f"dc_{year}_{tile}.ncml")
+            ncml_path = os.path.join(ncml_base_path, level, tile, year, f"dc_{year}_{tile}.ncml")
 
             # Ensure directory exists
             os.makedirs(os.path.dirname(ncml_path), exist_ok=True)
