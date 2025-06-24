@@ -94,7 +94,12 @@ class Datacube:
         for nc in self._aggregation.findall(f"{{{self.NS}}}netcdf"):
             if nc.get("location") == filepath:
                 self._aggregation.remove(nc)
+                # Ensure proper formatting
+                etree.indent(self._tree, space="  ")
                 self._tree.write(self.ncml_path, pretty_print=True, xml_declaration=True, encoding="utf-8")
+                if len(self._aggregation.findall(f"{{{self.NS}}}netcdf")) == 0:
+                    print("Deleting datacube as it contains no products")
+                    self.delete_cube()
                 return
         print(f"Product not found: {filepath}")
 
@@ -120,3 +125,13 @@ class Datacube:
                 print(f" - {f}")
             return False
         return True
+
+    def delete_cube(self):
+        '''
+        Delete the ncml datacube file
+        '''
+        if os.path.exists(self.ncml_path):
+            os.remove(self.ncml_path)
+            print(f'Data cube deleted: {self.ncml_path}')
+        else:
+            print(f'File does not exist: {self.ncml_path}')
