@@ -135,3 +135,74 @@ class Datacube:
             print(f'Data cube deleted: {self.ncml_path}')
         else:
             print(f'File does not exist: {self.ncml_path}')
+    
+    def sort(self):
+        '''
+        Sort the datacube products by timestamp and the rest of the filename after the timestamp,
+        ignoring the platform (e.g., S2A, S2B, S2C).
+        '''
+        if self._aggregation is None:
+            print("No aggregation found in NCML.")
+            return
+
+        netcdf_elements = self._aggregation.findall(f"{{{self.NS}}}netcdf")
+
+        # Define a helper function to extract the sorting key
+        def extract_sort_key(elem):
+            location = elem.get("location", "")
+            filename = os.path.basename(location)
+            # Split the filename into parts and ignore the platform (e.g., S2A, S2B)
+            parts = filename.split("_")
+            if len(parts) > 2:
+                # Extract everything from the timestamp (e.g., 20221203T104421 and beyond)
+                key = "_".join(parts[2:]) 
+            else:
+                key = ""
+            return key
+
+        sorted_elements = sorted(netcdf_elements, key=extract_sort_key)
+
+        self._aggregation.clear()
+        for elem in sorted_elements:
+            self._aggregation.append(elem)
+
+        etree.indent(self._tree, space="  ")
+
+        self._tree.write(self.ncml_path, pretty_print=True, xml_declaration=True, encoding="utf-8")
+        print("Data cube sorted successfully.")
+
+    def remove_duplicates(self):
+        '''
+        Remove duplicate products, retaining only the one with the latest baseline.
+        '''
+        if self._aggregation is None:
+            print("No aggregation found in NCML.")
+            return
+
+        netcdf_elements = self._aggregation.findall(f"{{{self.NS}}}netcdf")
+        latest_products = {}
+
+        def extract_key_and_baseline(location):
+            filename = os.path.basename(location)
+            parts = filename.split("_")
+            if len(parts) > 3:
+                unique_key = "_".join(parts[:3] + parts[4:-1])
+                baseline = parts[3]
+            else:
+                unique_key = filename
+                baseline = ""
+            return unique_key, baseline
+
+        for elem in netcdf_elements:
+            location = elem.get("location", "")
+            unique_key, baseline = extract_key_and_baseline(location)
+            if unique_key not in latest_products or baseline > latest_products[unique_key][0]:
+                latest_products[unique_key] = (baseline, elem)
+
+        self._aggregation.clear()
+        for _, (_, elem) in latest_products.items():
+            self._aggregation.append(elem)
+
+        etree.indent(self._tree, space="  ")
+        self._tree.write(self.ncml_path, pretty_print=True, xml_declaration=True, encoding="utf-8")
+        print("Duplicates removed successfully.")
