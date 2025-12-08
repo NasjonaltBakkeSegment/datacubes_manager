@@ -162,7 +162,13 @@ class Datacube:
 
         sorted_elements = sorted(netcdf_elements, key=extract_sort_key)
 
+        dim_name = self._aggregation.get("dimName", "time")
+        agg_type = self._aggregation.get("type", "joinExisting")
+
         self._aggregation.clear()
+        self._aggregation.set("dimName", dim_name)
+        self._aggregation.set("type", agg_type)
+        
         for elem in sorted_elements:
             self._aggregation.append(elem)
 
@@ -199,7 +205,13 @@ class Datacube:
             if unique_key not in latest_products or baseline > latest_products[unique_key][0]:
                 latest_products[unique_key] = (baseline, elem)
 
+        dim_name = self._aggregation.get("dimName", "time")
+        agg_type = self._aggregation.get("type", "joinExisting")
+
         self._aggregation.clear()
+        self._aggregation.set("dimName", dim_name)
+        self._aggregation.set("type", agg_type)
+
         for _, (_, elem) in latest_products.items():
             self._aggregation.append(elem)
 
