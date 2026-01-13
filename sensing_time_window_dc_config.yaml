@@ -6,13 +6,13 @@ netcdf_creator_file: run_sentinel_data_converter.py
 path2safe_catalog: /lustre/storeB/project/NBS2/sentinel/production/NorwAREA/nbsArchive
 path2dedicated_datacubes_on_demand: /lustre/storeB/project/NBS2/sentinel/production/NorwAREA/NetCDF-ondemand-products/datacubes
 # path2dedicated_datacubes_on_demand: /home/josteines/src/NBS/temp_datacubes_storage
-product_level: L2A
-product_type: S2A
+product_level: L1C
+product_type: S2
 # selected myself:
 # tile: T33UVV
 # tile I know we have:
 tile: T32VPM
-start_sensing_date: 2025/11/20
+start_sensing_date: 2025/12/15
 end_sensing_date: 2025/12/31
 
 
