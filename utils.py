@@ -392,7 +392,10 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
                 print(f"Error with file operation: {e}")
 
         else:
-            print(f"There are no differences between the datacubes. {datacube_filepath} is kept as it is.")
+            print(f"There are no differences between the datacubes. {datacube_filepath} is kept as it is and {new_datacube_filepath} is removed.")
+
+            # Remove the newly created datacube as it is identical to the old one
+            os.remove(new_datacube_filepath)
 
     else:
         print(f'The datacube {datacube_filename} did not exist. Creating it...')
