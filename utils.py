@@ -237,7 +237,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
             "python3",  # Or "python", depending on your setup
             sentinel_converter_path,
             "--input_filepath", product_path,
-            "--output", nc_file,
+            "--output", nc_filepath,
             ]
 
         # 6. Check existence and existance of netCDF
@@ -247,13 +247,13 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
             if not nc_file.is_file():
                 
-                # try:
-                #     result = subprocess.run(command, check=True, text=True, capture_output=True)
-                #     print("Script output:")
-                #     print(result.stdout)  # Print the output of the external script
-                # except subprocess.CalledProcessError as e:
-                #     print("Error occurred while running the script:")
-                #     print(e.stderr)
+                try:
+                    result = subprocess.run(command, check=True, text=True, capture_output=True)
+                    print("Script output:")
+                    print(result.stdout)  # Print the output of the external script
+                except subprocess.CalledProcessError as e:
+                    print("Error occurred while running the script:")
+                    print(e.stderr)
                 print(f'{nc_file} does not exist! Creating this.')
                 found_but_no_nc += 1
             else:
