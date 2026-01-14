@@ -162,6 +162,26 @@ def compare_ncml_files(file1, file2):
     except Exception as e:
         print(f"Error comparing files: {e}")
         return False
+    
+import shutil
+    
+def remove_safe_folders(directory):
+    """
+    Remove folders ending with '.SAFE' from the specified directory.
+
+    Parameters:
+    directory (str): The path to the directory to search for '.SAFE' folders.
+    """
+    # Iterate through all items in the directory
+    for item in os.listdir(directory):
+        # Construct the full path of the item
+        item_path = os.path.join(directory, item)
+        
+        # Check if the item is a directory and its name ends with '.SAFE'
+        if os.path.isdir(item_path) and item.endswith(".SAFE"):
+            print(f"Removing folder: {item_path}")
+            # Remove the directory and all its contents
+            shutil.rmtree(item_path)
 
 
 from pathlib import Path
@@ -297,7 +317,9 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
     # 1. Loop through all .nc files in base_path
     nc_files = glob.glob(os.path.join(nc_filepath, "*.nc"))
-    # print(nc_files)
+    print('nc_files = ')
+    print(nc_files)
+    print('paths2each_single_ncfile_within_a_datacube = ')
     print(paths2each_single_ncfile_within_a_datacube)
 
     # for netcdf_filepath in paths2each_single_ncfile_within_a_datacube:#nc_files:
@@ -405,5 +427,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
                               )
 
 
+    # As there is created more than planned (.SAFE folders with content) - remove these for now:
+    remove_safe_folders(directory = path2dedicated_datacubes_on_demand)
 
     return
