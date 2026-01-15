@@ -100,6 +100,7 @@ def find_safe_files_from_given_tileNproductlevel_within_time_interval(directorie
 
 import glob
 
+''' # Both functions made redundant by using Datacube functionality from datacube.py
 def create_ncml_with_aggregation(nc_files, output_ncml, dim_name="time", aggregation_type="joinExisting"):
     """
     Create an NcML file with an aggregation structure for given NetCDF files.
@@ -162,7 +163,8 @@ def compare_ncml_files(file1, file2):
     except Exception as e:
         print(f"Error comparing files: {e}")
         return False
-    
+#'''
+
 import shutil
     
 def remove_safe_folders(directory):
@@ -267,13 +269,13 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
             if not nc_file.is_file():
                 
-                try:
-                    result = subprocess.run(command, check=True, text=True, capture_output=True)
-                    print("Script output:")
-                    print(result.stdout)  # Print the output of the external script
-                except subprocess.CalledProcessError as e:
-                    print("Error occurred while running the script:")
-                    print(e.stderr)
+                # try:
+                #     result = subprocess.run(command, check=True, text=True, capture_output=True)
+                #     print("Script output:")
+                #     print(result.stdout)  # Print the output of the external script
+                # except subprocess.CalledProcessError as e:
+                #     print("Error occurred while running the script:")
+                #     print(e.stderr)
                 print(f'{nc_file} does not exist! Creating this.')
                 found_but_no_nc += 1
             else:
@@ -382,7 +384,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
     datacube_filepath = os.path.join(path2spesific_datacubes_folder, datacube_filename)
     print(datacube_filepath)
 
-
+    ''' My own creation to make the datacube
     new_datacube_filename = f"new_{product_type}_{product_level}_{tile}_{date_str_start}_{date_str_end}.ncml"
     new_datacube_filepath = os.path.join(path2spesific_datacubes_folder, new_datacube_filename)
     print(new_datacube_filepath)
@@ -425,7 +427,14 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
         create_ncml_with_aggregation(nc_files = paths2each_single_ncfile_within_a_datacube, 
                               output_ncml = datacube_filepath
                               )
+    '''
 
+    # Creating/editing the datacube using Datacube from datacube.py
+    datacube = Datacube(datacube_filepath)
+    for nc_path in paths2each_single_ncfile_within_a_datacube:
+        datacube.add_product(nc_path)
+        datacube.sort()
+        datacube.remove_duplicates()
 
     # As there is created more than planned (.SAFE folders with content) - remove these for now:
     remove_safe_folders(directory = path2dedicated_datacubes_on_demand)
