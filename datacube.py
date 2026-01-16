@@ -180,6 +180,7 @@ class Datacube:
     def remove_duplicates(self):
         '''
         Remove duplicate products, retaining only the one with the latest baseline.
+        If multiple products have the same baseline, retain the one with the latest second timestamp.
         '''
         if self._aggregation is None:
             print("No aggregation found in NCML.")
@@ -188,23 +189,34 @@ class Datacube:
         netcdf_elements = self._aggregation.findall(f"{{{self.NS}}}netcdf")
         latest_products = {}
 
-        def extract_key_and_baseline(location):
+        def extract_key_baseline_and_timestamp(location):
             filename = os.path.basename(location)
             parts = filename.split("_")
             if len(parts) > 3:
-                unique_key = "_".join(parts[:3] + parts[4:-1])
-                baseline = parts[3]
+                unique_key = "_".join(parts[:3] + parts[4:-1])  # Unique identifier for products (excluding baseline and timestamp)
+                baseline = parts[3]  # Baseline (e.g., N0511)
+                second_timestamp = parts[-1].split(".")[0]  # Second timestamp (e.g., 20251231T142312)
             else:
                 unique_key = filename
                 baseline = ""
-            return unique_key, baseline
+                second_timestamp = ""
+            return unique_key, baseline, second_timestamp
 
         for elem in netcdf_elements:
             location = elem.get("location", "")
-            unique_key, baseline = extract_key_and_baseline(location)
-            if unique_key not in latest_products or baseline > latest_products[unique_key][0]:
-                latest_products[unique_key] = (baseline, elem)
+            unique_key, baseline, second_timestamp = extract_key_baseline_and_timestamp(location)
+            if unique_key not in latest_products:
+                # First occurrence of this unique key
+                latest_products[unique_key] = (baseline, second_timestamp, elem)
+            else:
+                # Compare existing product with the new one based on baseline and second timestamp
+                existing_baseline, existing_second_timestamp, _ = latest_products[unique_key]
 
+                if baseline > existing_baseline or (baseline == existing_baseline and second_timestamp > existing_second_timestamp):
+                    # If the new product has a later baseline or the same baseline but a later second timestamp, update
+                    latest_products[unique_key] = (baseline, second_timestamp, elem)
+
+        # Clear the aggregation and rebuild it with the latest products
         dim_name = self._aggregation.get("dimName", "time")
         agg_type = self._aggregation.get("type", "joinExisting")
 
@@ -212,7 +224,7 @@ class Datacube:
         self._aggregation.set("dimName", dim_name)
         self._aggregation.set("type", agg_type)
 
-        for _, (_, elem) in latest_products.items():
+        for _, (_, _, elem) in latest_products.items():
             self._aggregation.append(elem)
 
         etree.indent(self._tree, space="  ")
