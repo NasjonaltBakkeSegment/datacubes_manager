@@ -39,6 +39,95 @@ def read_config_file(file_path):
 
 
 
+from cdsetool.query import query_features
+from datetime import date, datetime
+from cdsetool.query import describe_collection
+
+def queryCDSE4products_based_on_tile_and_product_level(date_from, date_to, tile_id, product_level, collection = 'Sentinel2'):
+    search_terms = describe_collection(collection).keys()
+    print(search_terms)
+
+    # Break apart the year, month and day from the start date
+    date_from_year = date_from[:4]
+    date_from_month = date_from[5:7]
+    date_from_day = date_from[8:10]
+
+    if date_from_month.startswith("0"):
+        date_from_month = date_from_month[1:]
+    if date_from_day.startswith("0"):
+        date_from_day = date_from_day[1:]    
+
+    start_date = date(int(date_from_year), int(date_from_month), int(date_from_day))
+
+    # Break apart the year, month and day from the end date
+    date_to_year = date_to[:4]
+    date_to_month = date_to[5:7]
+    date_to_day = date_to[8:10]
+
+    if date_to_month.startswith("0"):
+        date_to_month = date_to_month[1:]
+    if date_to_day.startswith("0"):
+        date_to_day = date_to_day[1:]
+
+
+    end_date = date(int(date_to_year), int(date_to_month), int(date_to_day))
+    
+
+
+
+    #tile_ids = ["32VPM"]# ["32VNM"]
+    # tile_ids = ["32VNM"]
+
+    # tile_ids=["33WXT",
+    # "33WXS",
+    # "33WWT",
+    # "33WWS",
+    # "32VKN",
+    # "32VKM",
+    # "32VLN",
+    # "32VLM",
+    # "32VNN",
+    # "32VPN",
+    # "32VNP"]
+
+
+    #for tile_id in tile_ids:
+    features = query_features(collection, 
+                            {"tileId": tile_id, 
+                            "startDate": start_date, 
+                            "completionDate": end_date,
+                            # "processingLevel":"S2MSI2A"
+                            # "processingLevel":"S2MSI1C"
+                            "processingLevel":f"S2MSI{product_level[1:]}"
+                            },
+                            )
+    print(product_level[1:])
+    output = list(features)
+    print('output:')
+    print(output[0], '\n')
+
+    titles = [output[i]['properties']['title'] for i in range(len(output))]
+
+    # print('titles')
+    # print(titles,'\n')
+    print(f'There are {len(titles)} products found!', '\n')
+
+    product_level_products = []
+    for tit in titles:
+        if product_level in tit:
+            product_level_products.append(tit)
+
+    print(f'There are {len(product_level_products)} {product_level} products among the query reesults')
+
+    # with open(f's2_L2A_{tile_id}_products.txt','w') as outfile:
+    #     for tit in titles:
+    #         outfile.write(tit + '\n')
+    return
+
+
+#queryCDSE4products_based_on_tile_and_product_level(date_from = '2017/01/01', date_to = '2024/12/31', tile_id = '33WXT', product_level = 'L2A') 
+
+
 
 
 from datetime import datetime, timedelta
@@ -236,11 +325,8 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
         # 5. Build filepath
         zip_filepath = Path(path2safe_catalog) / platform / year / month / day / zip_product
-        #nc_filepath = Path(path2dedicated_datacubes_on_demand) / product_level / tile
+        nc_filepath = Path(path2dedicated_datacubes_on_demand) / product_level / tile
         
-
-        temp_nc_storage_path = Path(root_path) / product_level / tile
-        nc_filepath = temp_nc_storage_path
 
         if not os.path.exists(nc_filepath) or not os.path.isdir(nc_filepath):
             print(f"The directory '{nc_filepath}' does not exist. Creating it...")
@@ -290,6 +376,10 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
         # Keep all nc paths in a list 
         paths2each_single_ncfile_within_a_datacube.append(str(nc_file))
 
+        # As there is created more than planned (.SAFE folders with content) - remove these for now:
+        remove_safe_folders(directory = nc_filepath)
+
+
         print('\n')
 
     # Print stats
@@ -302,13 +392,10 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
     print(paths2each_single_ncfile_within_a_datacube)
     print('\n')
 
-
-    # This is the nc_filepath
-    # base_path="/lustre/storeB/project/NBS2/sentinel/production/NorwAREA/NetCDF-ondemand-products/datacubes/L2A/T32VPM"
-
     # path to datacubes on demand where nc products and datacubes are saved under product level and tile
     # path2dedicated_datacubes_on_demand = Path(path2dedicated_datacubes_on_demand) # = /lustre/storeB/project/NBS2/sentinel/production/NorwAREA/NetCDF-ondemand-products/datacubes
-    path2dedicated_datacubes_on_demand = Path(root_path) / product_level / tile
+    path2dedicated_datacubes_on_demand = Path(path2dedicated_datacubes_on_demand) / product_level / tile
+
 
     p = Path(path2dedicated_datacubes_on_demand)
     for file_path in p.iterdir():
@@ -436,7 +523,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
         datacube.sort()
         datacube.remove_duplicates()
 
-    # As there is created more than planned (.SAFE folders with content) - remove these for now:
-    remove_safe_folders(directory = path2dedicated_datacubes_on_demand)
+    # # As there is created more than planned (.SAFE folders with content) - remove these for now:
+    # remove_safe_folders(directory = path2dedicated_datacubes_on_demand)
 
     return
