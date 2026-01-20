@@ -6,14 +6,20 @@ Check if we already have the SAFE files. Create a file with the missing products
 
 
 
-from utils import read_config_file,\
+from utils import get_script_root_path,\
+                  read_config_file,\
                   generate_date_range,\
                   find_safe_files_from_given_tileNproductlevel_within_time_interval, \
-                  checkNcreate_netcdfNdatacubes
+                  checkNcreate_netcdfNdatacubes, \
+                  queryCDSE4products_based_on_tile_and_product_level
+
 import os
 
+# Get the root path to the current directory
+root_path = get_script_root_path()
+
 ### read in the desired config file
-config_file_path = 'sensing_time_window_dc_config.yaml'
+config_file_path = f'{root_path}/sensing_time_window_dc_config.yaml'
 config = read_config_file(config_file_path)
 # print(config)
 
@@ -28,7 +34,7 @@ netcdf_converter = config['netcdf_creator_file']
 path2safe_to_netcdf = config['path2safe_to_netcdf']
 path2dedicated_datacubes_on_demand = config['path2dedicated_datacubes_on_demand']
 netcdf_creator_file = config['netcdf_creator_file']
-root_path = config['root_path']
+
 
 
 # Extract the dates on a YYYY/MM/DD format between the selected start and end date 

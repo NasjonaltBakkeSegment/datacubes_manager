@@ -1,3 +1,14 @@
+import os
+
+def get_script_root_path():
+    # Get the absolute path of the script and then extract the directory
+    return os.path.dirname(os.path.abspath(__file__))
+
+# Example usage
+root_path = get_script_root_path()
+print("Root path:", root_path)
+
+
 import ast
 
 def read_config_file(file_path):
@@ -155,8 +166,6 @@ def generate_date_range(start_date, end_date):
     return date_list
 
 
-
-import os
 
 def find_safe_files_from_given_tileNproductlevel_within_time_interval(directories, search_string_tile, search_string_productlevel):
     """
