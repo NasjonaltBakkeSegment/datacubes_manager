@@ -10,8 +10,8 @@ from utils import get_script_root_path,\
                   read_config_file,\
                   generate_date_range,\
                   find_safe_files_from_given_tileNproductlevel_within_time_interval, \
-                  checkNcreate_netcdfNdatacubes, \
-                  queryCDSE4products_based_on_tile_and_product_level
+                  checkNcreate_netcdfNdatacubes#, \
+                  #queryCDSE4products_based_on_tile_and_product_level
 
 import os
 
@@ -27,6 +27,7 @@ config = read_config_file(config_file_path)
 start_time = config['start_sensing_date']
 end_time = config['end_sensing_date']
 tile = config['tile']
+tile_id = tile[1:] # Removing the first 'T' - This is used for the CDSE query
 path2safe_catalog = config['path2safe_catalog']
 product_type = config['product_type']
 product_level = config['product_level']
@@ -71,6 +72,19 @@ desired_safe_files.sort()
 
 print(desired_safe_files)
 print('\n')
+
+
+'''
+1. Query CDSE and check what products we do not have
+
+2. Single out the missing products
+
+3. Add the missing products to the download queue
+
+4. Make the netCDF files and the datacubes - already in place
+'''
+
+
 
 
 '''

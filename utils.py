@@ -136,7 +136,7 @@ def queryCDSE4products_based_on_tile_and_product_level(date_from, date_to, tile_
     return
 
 
-#queryCDSE4products_based_on_tile_and_product_level(date_from = '2017/01/01', date_to = '2024/12/31', tile_id = '33WXT', product_level = 'L2A') 
+queryCDSE4products_based_on_tile_and_product_level(date_from = '2017/01/01', date_to = '2024/12/31', tile_id = 'T33WXT'[1:], product_level = 'L2A') 
 
 
 
@@ -290,17 +290,6 @@ import subprocess
 from datacube import Datacube
 
 def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_datacubes_on_demand, path2safe_to_netcdf, netcdf_creator_file, root_path, product_type, start_sensing_date, end_sensing_date):
-    # # List of product names
-    # products = [
-    #     "S2A_MSIL2A_20150818T092006_N0500_R093_T37WDP_20231012T115416.SAFE",
-    #     "S2A_MSIL2A_20150818T110046_N0500_R094_T34WDB_20231009T195950.SAFE",
-    #     "S2C_MSIL2A_20251028T104151_N0511_R008_T32VPM_20251028T135916.SAFE",
-    #     # Add more product names here...
-    # ]
-
-    # # Base path
-    # path2safe_catalog = "/lustre/storeB/project/NBS2/sentinel/production/NorwAREA/nbsArchive/"
-    # path2dedicated_datacubes_on_demand = "/lustre/storeB/project/NBS2/sentinel/production/NorwAREA/NetCDF-ondemand-products/datacubes"
 
     # Counters
     found = 0
@@ -364,13 +353,13 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
             if not nc_file.is_file():
                 
-                # try:
-                #     result = subprocess.run(command, check=True, text=True, capture_output=True)
-                #     print("Script output:")
-                #     print(result.stdout)  # Print the output of the external script
-                # except subprocess.CalledProcessError as e:
-                #     print("Error occurred while running the script:")
-                #     print(e.stderr)
+                try:
+                    result = subprocess.run(command, check=True, text=True, capture_output=True)
+                    print("Script output:")
+                    print(result.stdout)  # Print the output of the external script
+                except subprocess.CalledProcessError as e:
+                    print("Error occurred while running the script:")
+                    print(e.stderr)
                 print(f'{nc_file} does not exist! Creating this.')
                 found_but_no_nc += 1
             else:
@@ -420,46 +409,8 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
     print('paths2each_single_ncfile_within_a_datacube = ')
     print(paths2each_single_ncfile_within_a_datacube)
 
-    # for netcdf_filepath in paths2each_single_ncfile_within_a_datacube:#nc_files:
-    #     '''
-    #     # 2. Extract year from filename (e.g. S2C_MSIL2A_20250312T103851_...)
-    #     filename = os.path.basename(netcdf_filepath)
-        
-    #     # Assuming the date is always in the format YYYYMMDD starting at position 11
-    #     # (adjust index if your filenames differ)
-    #     date_str = filename.split('_')[2]  # '20250312T103851'
-    #     year = date_str[:4]  # '2025'
-    #     '''
-    #     date_str_start = start_sensing_date.replace('/','')
-    #     date_str_end = end_sensing_date.replace('/','')
 
-    #     path2spesific_datacubes_folder = Path(path2dedicated_datacubes_on_demand) / 'datacubes'
-
-    #     # Create datacubes folder if not excisting
-    #     if not os.path.exists(path2spesific_datacubes_folder) or not os.path.isdir(path2spesific_datacubes_folder):
-    #         print(f"The directory '{path2spesific_datacubes_folder}' does not exist. Creating it...")
-    #         os.makedirs(path2spesific_datacubes_folder)  # Create the directory
-
-    #     # 3. Create filepath for datacube (base_path/S2_L2A_T32VNM_YEAR.ncml)
-    #     datacube_filename = f"{product_type}_{product_level}_{tile}_{date_str_start}_{date_str_end}.ncml"
-    #     datacube_filepath = os.path.join(path2spesific_datacubes_folder, datacube_filename)
-    #     print(datacube_filepath)
-
-    #     # # 4. Initialise with path to NCML file 
-    #     # cube = Datacube(datacube_filepath, dim_name="time", agg_type="joinExisting")
-
-    #     # # 5. Add netcdf file to datacube
-    #     # cube.add_product(netcdf_filepath)
-
-    '''
-    # 2. Extract year from filename (e.g. S2C_MSIL2A_20250312T103851_...)
-    filename = os.path.basename(netcdf_filepath)
     
-    # Assuming the date is always in the format YYYYMMDD starting at position 11
-    # (adjust index if your filenames differ)
-    date_str = filename.split('_')[2]  # '20250312T103851'
-    year = date_str[:4]  # '2025'
-    '''
     date_str_start = start_sensing_date.replace('/','')
     date_str_end = end_sensing_date.replace('/','')
 
