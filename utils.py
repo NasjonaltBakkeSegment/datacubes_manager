@@ -49,7 +49,7 @@ def read_config_file(file_path):
     return config
 
 
-
+'''
 from cdsetool.query import query_features
 from datetime import date, datetime
 from cdsetool.query import describe_collection
@@ -137,7 +137,7 @@ def queryCDSE4products_based_on_tile_and_product_level(date_from, date_to, tile_
 
 
 queryCDSE4products_based_on_tile_and_product_level(date_from = '2017/01/01', date_to = '2024/12/31', tile_id = 'T33WXT'[1:], product_level = 'L2A') 
-
+'''
 
 
 
