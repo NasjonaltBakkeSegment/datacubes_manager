@@ -83,6 +83,9 @@ class Datacube:
 
         self._tree.write(self.ncml_path, pretty_print=True, xml_declaration=True, encoding="utf-8")
 
+        # Reload the NCML file to ensure in-memory state matches the file on disk
+        self._load_ncml()
+
     def remove_product(self, filepath):
         '''
         Remove a product from the cube
@@ -135,7 +138,7 @@ class Datacube:
             print(f'Data cube deleted: {self.ncml_path}')
         else:
             print(f'File does not exist: {self.ncml_path}')
-    
+
     def sort(self):
         '''
         Sort the datacube products by timestamp and the rest of the filename after the timestamp,
@@ -155,7 +158,7 @@ class Datacube:
             parts = filename.split("_")
             if len(parts) > 2:
                 # Extract everything from the timestamp (e.g., 20221203T104421 and beyond)
-                key = "_".join(parts[2:]) 
+                key = "_".join(parts[2:])
             else:
                 key = ""
             return key
@@ -168,7 +171,7 @@ class Datacube:
         self._aggregation.clear()
         self._aggregation.set("dimName", dim_name)
         self._aggregation.set("type", agg_type)
-        
+
         for elem in sorted_elements:
             self._aggregation.append(elem)
 
@@ -176,6 +179,9 @@ class Datacube:
 
         self._tree.write(self.ncml_path, pretty_print=True, xml_declaration=True, encoding="utf-8")
         print("Data cube sorted successfully.")
+
+        # Reload the NCML file to ensure in-memory state matches the file on disk
+        self._load_ncml()
 
     def remove_duplicates(self):
         '''
@@ -230,3 +236,6 @@ class Datacube:
         etree.indent(self._tree, space="  ")
         self._tree.write(self.ncml_path, pretty_print=True, xml_declaration=True, encoding="utf-8")
         print("Duplicates removed successfully.")
+
+        # Reload the NCML file to ensure in-memory state matches the file on disk
+        self._load_ncml()
