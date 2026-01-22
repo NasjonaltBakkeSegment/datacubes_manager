@@ -478,10 +478,14 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
     # Creating/editing the datacube using Datacube from datacube.py
     datacube = Datacube(datacube_filepath)
-    for nc_path in paths2each_single_ncfile_within_a_datacube:
+    for nc_path in nc_files:
+        #print(str(nc_path))
         datacube.add_product(nc_path)
-        datacube.sort()
-        datacube.remove_duplicates()
+
+    # Need to define datacube a second time to make sure that .remove_duplicates and .sort do no clear the content of the .ncml
+    datacube = Datacube(datacube_filepath)
+    datacube.remove_duplicates()
+    datacube.sort()
 
     # # As there is created more than planned (.SAFE folders with content) - remove these for now:
     # remove_safe_folders(directory = path2dedicated_datacubes_on_demand)
