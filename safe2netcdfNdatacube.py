@@ -6,7 +6,7 @@ Check if we already have the SAFE files. Create a file with the missing products
 
 
 
-from utils import get_script_root_path,\
+from dc_utils import get_script_root_path,\
                   read_config_file,\
                   generate_date_range,\
                   find_safe_files_from_given_tileNproductlevel_within_time_interval, \

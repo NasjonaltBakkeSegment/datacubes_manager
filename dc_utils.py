@@ -289,6 +289,27 @@ from pathlib import Path
 import subprocess
 from datacube import Datacube
 
+import sys
+
+# Save the original sys.path
+original_sys_path = sys.path.copy()
+
+# Get the current script's directory
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Get the neighboring folder path (safe_to_netcdf)
+neighboring_folder_path = os.path.join(current_dir, '..', 'safe_to_netcdf')
+
+# Prepend the neighboring folder to sys.path to prioritize its utils.py
+sys.path.insert(0, neighboring_folder_path)
+
+# Import Sentinel2_reader_and_NetCDF_converter
+from s2_reader_and_NetCDF_converter import Sentinel2_reader_and_NetCDF_converter
+
+import utils
+print(f"Using utils.py from: {utils.__file__}")
+
+
 def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_datacubes_on_demand, path2safe_to_netcdf, netcdf_creator_file, root_path, product_type, start_sensing_date, end_sensing_date):
 
     # Counters
@@ -337,7 +358,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
         # netcdf_creator_file = "run_sentinel_data_converter.py"
 
         sentinel_converter_path = Path(path2safe_to_netcdf) / netcdf_creator_file
-
+        '''
         # Build the command to run the external script
         command = [
             "python3",  # Or "python", depending on your setup
@@ -345,7 +366,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
             "--input_filepath", product_path,
             "--output", nc_filepath,
             ]
-
+        '''
         # 6. Check existence and existance of netCDF
         if zip_filepath.is_file():
             print(f"Safe exists: {zip_filepath}")
@@ -353,13 +374,28 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
             if not nc_file.is_file():
                 
-                try:
-                    result = subprocess.run(command, check=True, text=True, capture_output=True)
-                    print("Script output:")
-                    print(result.stdout)  # Print the output of the external script
-                except subprocess.CalledProcessError as e:
-                    print("Error occurred while running the script:")
-                    print(e.stderr)
+                # try:
+                #     result = subprocess.run(command, check=True, text=True, capture_output=True)
+                #     print("Script output:")
+                #     print(result.stdout)  # Print the output of the external script
+                
+                # Initialize the Sentinel2 reader and converter
+                converter = Sentinel2_reader_and_NetCDF_converter(product=product_file.replace('.zip',''), # Filename without extension
+                                                                    indir=Path(product).parent,            # Path to parent folder of the product
+                                                                   outdir=nc_filepath)                     # Full file path to the NetCDF output file
+                # Perform the conversion if the SAFE file was read successfully
+                if converter.read_ok:
+                    success = converter.write_to_NetCDF(nc_filepath, compression_level=4)
+                    if success:
+                        print(f"Conversion successful! NetCDF file saved in: {nc_file}")
+                    else:
+                        print("Conversion failed during NetCDF writing.")
+                else:
+                    print("Failed to read the SAFE file. Please check the input file.")
+
+                # except subprocess.CalledProcessError as e:
+                #     print("Error occurred while running the script:")
+                #     print(e.stderr)
                 print(f'{nc_file} does not exist! Creating this.')
                 found_but_no_nc += 1
             else:
@@ -482,8 +518,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
         #print(str(nc_path))
         datacube.add_product(nc_path)
 
-    # Need to define datacube a second time to make sure that .remove_duplicates and .sort do no clear the content of the .ncml
-    datacube = Datacube(datacube_filepath)
+    # Ensure the removal of eventual duplicate products and sorting of the remaining products
     datacube.remove_duplicates()
     datacube.sort()
 
