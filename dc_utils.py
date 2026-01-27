@@ -440,7 +440,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
         nc_file = Path(nc_filepath) / nc_product
 
-        second_chance_nc_file = Path(second_chance_nc_file) / platform / year / month / day / nc_product
+        second_chance_nc_file = Path(path2second_chance_netcdf) / platform / year / month / day / nc_product
 
 
         # path2safe_to_netcdf = "/home/josteines/src/NBS/safe_to_netcdf"
@@ -487,7 +487,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
                                           nc_file = nc_file,
                                       )
                 found_but_no_nc += 1
-                
+
         else:
             print(f"Missing: {zip_filepath}")
             missing += 1
