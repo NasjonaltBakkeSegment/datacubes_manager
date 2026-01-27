@@ -196,6 +196,66 @@ def find_safe_files_from_given_tileNproductlevel_within_time_interval(directorie
     return matching_file_paths
 
 
+import xarray as xr
+
+def check_ds4certain_variable(path2nc, variable):
+    ds = xr.open_dataset(path2nc)
+
+    if variable in ds:
+        ds.close()
+        return True
+    else:
+        ds.close()
+        return False
+    
+    
+# def check_ds4certain_global_attribute(path2nc, global_attribute):
+#     ds = xr.open_dataset(path2nc)
+
+#     if global_attribute in ds.attrs:
+#         ds.close()
+#         return True
+#     else:
+#         ds.close()
+#         return False
+
+# def extract_cloud_coverage_from_global_attrs_and_assign_it_as_a_variable(dataset, path2output_ncfile):
+
+#     # Extract the global attribute 'cloud_coverage'
+#     cloud_coverage_value = dataset.attrs.get('cloud_coverage', None)
+
+#     if cloud_coverage_value is not None:
+#         # Extract the existing time coordinate
+#         if 'time' in dataset.coords:
+#             time = dataset.coords['time']
+
+#             # Create a new DataArray for the cloud_coverage variable
+#             cloud_coverage = xr.DataArray(
+#                 data=[cloud_coverage_value],  # The value of the cloud coverage
+#                 dims=['time'],  # Dimension name
+#                 coords={'time': time},  # Use the existing time coordinate
+#                 attrs={
+#                     'units': '1',  # Unit of the variable
+#                     'standard_name': 'cloud_area_fraction',  # CF convention standard name
+#                     'long_name': 'Integrated percentage cloud cover for all pixel values.',  # Description
+#                 },
+#             ).astype('float32')
+
+#             # Add the new variable to the dataset
+#             dataset['cloud_coverage'] = cloud_coverage
+
+#             # Save the updated dataset back to the netCDF file (optional)
+#             dataset.to_netcdf(path2output_ncfile)  # Replace with your desired output file name
+
+#             # Print the new variable to check
+#             print(dataset.cloud_coverage)
+
+#         else:
+#             print("The dataset does not have a 'time' coordinate.")
+#     else:
+#         print("The global attribute 'cloud_coverage' does not exist in the dataset.")
+#     return
+
 import glob
 
 ''' # Both functions made redundant by using Datacube functionality from datacube.py
@@ -309,8 +369,35 @@ from s2_reader_and_NetCDF_converter import Sentinel2_reader_and_NetCDF_converter
 import utils
 print(f"Using utils.py from: {utils.__file__}")
 
+def createNetCDFfromSAFE(product_file, product, nc_filepath, nc_file):
+    # try:
+    #     result = subprocess.run(command, check=True, text=True, capture_output=True)
+    #     print("Script output:")
+    #     print(result.stdout)  # Print the output of the external script
+    
+    # Initialize the Sentinel2 reader and converter
+    converter = Sentinel2_reader_and_NetCDF_converter(product=product_file.replace('.zip',''), # Filename without extension
+                                                        indir=Path(product).parent,            # Path to parent folder of the product
+                                                    outdir=nc_filepath)                     # Output directory of the NetCDF output file (the parent folder)
+    # Perform the conversion if the SAFE file was read successfully
+    if converter.read_ok:
+        success = converter.write_to_NetCDF(nc_filepath, compression_level=4)
+        if success:
+            print(f"Conversion successful! NetCDF file saved in: {nc_file}")
+        else:
+            print("Conversion failed during NetCDF writing.")
+    else:
+        print("Failed to read the SAFE file. Please check the input file.")
 
-def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_datacubes_on_demand, path2safe_to_netcdf, netcdf_creator_file, root_path, product_type, start_sensing_date, end_sensing_date):
+    # except subprocess.CalledProcessError as e:
+    #     print("Error occurred while running the script:")
+    #     print(e.stderr)
+    print(f'{nc_file} does not exist! Creating this.')
+
+    return
+
+
+def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_datacubes_on_demand, path2safe_to_netcdf, netcdf_creator_file, root_path, product_type, start_sensing_date, end_sensing_date, path2second_chance_netcdf):
 
     # Counters
     found = 0
@@ -353,12 +440,15 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
         nc_file = Path(nc_filepath) / nc_product
 
+        second_chance_nc_file = Path(second_chance_nc_file) / platform / year / month / day / nc_product
+
 
         # path2safe_to_netcdf = "/home/josteines/src/NBS/safe_to_netcdf"
         # netcdf_creator_file = "run_sentinel_data_converter.py"
 
-        sentinel_converter_path = Path(path2safe_to_netcdf) / netcdf_creator_file
         '''
+        sentinel_converter_path = Path(path2safe_to_netcdf) / netcdf_creator_file
+        
         # Build the command to run the external script
         command = [
             "python3",  # Or "python", depending on your setup
@@ -372,37 +462,32 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
             print(f"Safe exists: {zip_filepath}")
             found += 1
 
-            if not nc_file.is_file():
+            #######################################################################################
+
+            # Variable to check
+            variable2check = 'cloud_coverage'
+
+            if nc_file.is_file():
                 
-                # try:
-                #     result = subprocess.run(command, check=True, text=True, capture_output=True)
-                #     print("Script output:")
-                #     print(result.stdout)  # Print the output of the external script
-                
-                # Initialize the Sentinel2 reader and converter
-                converter = Sentinel2_reader_and_NetCDF_converter(product=product_file.replace('.zip',''), # Filename without extension
-                                                                    indir=Path(product).parent,            # Path to parent folder of the product
-                                                                   outdir=nc_filepath)                     # Full file path to the NetCDF output file
-                # Perform the conversion if the SAFE file was read successfully
-                if converter.read_ok:
-                    success = converter.write_to_NetCDF(nc_filepath, compression_level=4)
-                    if success:
-                        print(f"Conversion successful! NetCDF file saved in: {nc_file}")
-                    else:
-                        print("Conversion failed during NetCDF writing.")
+                if check_ds4certain_variable(path2nc=nc_file, variable=variable2check) == True:
+                    print(f'{nc_file} exists and does have {variable2check} as a variable! Moving on.')
                 else:
-                    print("Failed to read the SAFE file. Please check the input file.")
+                    createNetCDFfromSAFE(product_file = product_file,
+                                          product = product, 
+                                      nc_filepath = nc_filepath, 
+                                          nc_file = nc_file,
+                                      )
+                    found_but_no_nc += 1
 
-                # except subprocess.CalledProcessError as e:
-                #     print("Error occurred while running the script:")
-                #     print(e.stderr)
-                print(f'{nc_file} does not exist! Creating this.')
+            elif not nc_file.is_file():
+
+                createNetCDFfromSAFE(product_file = product_file,
+                                          product = product, 
+                                      nc_filepath = nc_filepath, 
+                                          nc_file = nc_file,
+                                      )
                 found_but_no_nc += 1
-            else:
-                print(f'{nc_file} exists! Moving on.')
-
-
-        
+                
         else:
             print(f"Missing: {zip_filepath}")
             missing += 1

@@ -35,6 +35,7 @@ netcdf_converter = config['netcdf_creator_file']
 path2safe_to_netcdf = config['path2safe_to_netcdf']
 path2dedicated_datacubes_on_demand = config['path2dedicated_datacubes_on_demand']
 netcdf_creator_file = config['netcdf_creator_file']
+path2netcdf_stored_in_production = config['path2netcdf_stored_in_production']
 
 
 
@@ -103,4 +104,5 @@ checkNcreate_netcdfNdatacubes(products = desired_safe_files,
                               start_sensing_date = start_time,
                               end_sensing_date = end_time,
                               product_type = product_type,
+                              path2second_chance_netcdf = path2netcdf_stored_in_production,
                               )
