@@ -403,8 +403,12 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
     found = 0
     found_but_no_nc = 0
     missing = 0
+    failed = 0
 
     paths2each_single_ncfile_within_a_datacube = []
+
+    # Initialize an empty dictionary to store failed products and their error messages
+    error_log = {}
 
     # Iterate over the list of products
     for product in products:
@@ -468,32 +472,53 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
             variable2check = 'cloud_coverage'
 
             if nc_file.is_file():
+
+                try:
                 
-                if check_ds4certain_variable(path2nc=nc_file, variable=variable2check) == True:
-                    print(f'{nc_file} exists and does have {variable2check} as a variable! Moving on.')
-                else:
-                    createNetCDFfromSAFE(product_file = product_file,
-                                          product = product, 
-                                      nc_filepath = nc_filepath, 
-                                          nc_file = nc_file,
-                                      )
-                    found_but_no_nc += 1
+                    if check_ds4certain_variable(path2nc=nc_file, variable=variable2check) == True:
+                        print(f'{nc_file} exists and does have {variable2check} as a variable! Moving on.')
+                    else:
+                        createNetCDFfromSAFE(product_file = product_file,
+                                            product = product, 
+                                        nc_filepath = nc_filepath, 
+                                            nc_file = nc_file,
+                                        )
+                        found_but_no_nc += 1
+
+                    # Keep all nc paths in a list 
+                    paths2each_single_ncfile_within_a_datacube.append(str(nc_file))
+
+                except Exception as e:
+                    # If an exception occurs, log the product and the error message
+                    error_log[product] = str(e)
+                    failed += 1
+
 
             elif not nc_file.is_file():
 
-                createNetCDFfromSAFE(product_file = product_file,
-                                          product = product, 
-                                      nc_filepath = nc_filepath, 
-                                          nc_file = nc_file,
-                                      )
-                found_but_no_nc += 1
+                try:
+
+                    createNetCDFfromSAFE(product_file = product_file,
+                                            product = product, 
+                                        nc_filepath = nc_filepath, 
+                                            nc_file = nc_file,
+                                        )
+                    found_but_no_nc += 1
+
+                    # Keep all nc paths in a list 
+                    paths2each_single_ncfile_within_a_datacube.append(str(nc_file))
+
+                except Exception as e:
+                    # If an exception occurs, log the product and the error message
+                    error_log[product] = str(e)
+                    failed +=1
 
         else:
             print(f"Missing: {zip_filepath}")
             missing += 1
 
-        # Keep all nc paths in a list 
-        paths2each_single_ncfile_within_a_datacube.append(str(nc_file))
+        # # Keep all nc paths in a list 
+        # paths2each_single_ncfile_within_a_datacube.append(str(nc_file))
 
         # As there is created more than planned (.SAFE folders with content) - remove these for now:
         remove_safe_folders(directory = nc_filepath)
@@ -507,6 +532,14 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
     print(f"Files lacking netCDF: {found_but_no_nc}")
     print(f"Missing: {missing}")
     print(f"Total processed: {found + missing}. Have made {found_but_no_nc} netCDF files that were lacking for the datacube on demand.")
+    print(f"Total failed convertions to netCDF: {failed}")
+
+    # Write the error log to a text file
+    with open(f"{tile}_error_log.txt", "w") as file:
+        for product, error_message in error_log.items():
+            file.write(f"{product}: {error_message}\n")
+
+    print("Error log written to 'error_log.txt'")
 
     print(paths2each_single_ncfile_within_a_datacube)
     print('\n')
