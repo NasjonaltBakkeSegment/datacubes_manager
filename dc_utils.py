@@ -325,7 +325,7 @@ def compare_ncml_files(file1, file2):
 
 import shutil
     
-def remove_safe_folders(directory, year):
+def remove_safe_folders(directory, file_name_without_extension):
     """
     Remove folders ending with '.SAFE' from the specified directory.
 
@@ -338,7 +338,7 @@ def remove_safe_folders(directory, year):
         item_path = os.path.join(directory, item)
         
         # Check if the item is a directory and its name ends with '.SAFE'
-        if os.path.isdir(item_path) and item.endswith(f"{year}.SAFE"):
+        if os.path.isdir(item_path) and item.endswith(f"{file_name_without_extension}.SAFE"):
             print(f"Removing folder: {item_path}")
             # Remove the directory and all its contents
             shutil.rmtree(item_path)
@@ -521,7 +521,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
         # paths2each_single_ncfile_within_a_datacube.append(str(nc_file))
 
         # As there is created more than planned (.SAFE folders with content) - remove these for now:
-        remove_safe_folders(directory = nc_filepath, year = year)
+        remove_safe_folders(directory = nc_filepath, file_name_without_extension = product_file.replace('.zip',''))
 
 
         print('\n')
