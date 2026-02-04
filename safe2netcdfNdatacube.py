@@ -36,6 +36,7 @@ path2safe_to_netcdf = config['path2safe_to_netcdf']
 path2dedicated_datacubes_on_demand = config['path2dedicated_datacubes_on_demand']
 netcdf_creator_file = config['netcdf_creator_file']
 path2netcdf_stored_in_production = config['path2netcdf_stored_in_production']
+error_log_path = config['error_log_path']
 
 
 
@@ -49,60 +50,75 @@ date_range = generate_date_range(start_date = start_time, end_date = end_time)
 #     safe_files.append(full_path)
 
 
-# Run through all possible safe files for product_type* (e.g. S2*) products within the date range
-safe_files = []
-for dates in date_range:
-    # List all directories in the parent directory
-    parent_path = os.path.join(path2safe_catalog)
-    for folder in os.listdir(parent_path):
-        # Check if the folder starts with the value of `product_type` and is a directory
-        if folder.startswith(product_type) and os.path.isdir(os.path.join(parent_path, folder)):
-            full_path = os.path.join(parent_path, folder, dates)
-            safe_files.append(full_path)
+# To separate each datacube by year the given date range is also devided by years
+import numpy as np
+yearly_list = np.arange(int(date_range[0][:4]), int(date_range[-1][:4])+1)
+print(yearly_list)
+for year in yearly_list:
+
+    yearly_date_range = generate_date_range(start_date = f'{year}/01/01', end_date = f'{year}/12/31')
 
 
-# print(safe_files)
-# print('\n')
-
-# Only extract the complete file paths of safe files of the selected tile
-desired_safe_files = find_safe_files_from_given_tileNproductlevel_within_time_interval(directories = safe_files,
-                                                                                search_string_tile = tile, 
-                                                                        search_string_productlevel = product_level,
-                                                                        )
-desired_safe_files.sort()
-
-print(desired_safe_files)
-print('\n')
-
-
-'''
-1. Query CDSE and check what products we do not have
-
-2. Single out the missing products
-
-3. Add the missing products to the download queue
-
-4. Make the netCDF files and the datacubes - already in place
-'''
+    
+    # Run through all possible safe files for product_type* (e.g. S2*) products within the date range
+    safe_files = []
+    # for dates in date_range:
+    for dates in yearly_date_range:
+        # List all directories in the parent directory
+        parent_path = os.path.join(path2safe_catalog)
+        for folder in os.listdir(parent_path):
+            # Check if the folder starts with the value of `product_type` and is a directory
+            if folder.startswith(product_type) and os.path.isdir(os.path.join(parent_path, folder, dates)):
+                full_path = os.path.join(parent_path, folder, dates)
+                safe_files.append(full_path)
 
 
+    # print(safe_files)
+    # print('\n')
+
+    # Only extract the complete file paths of safe files of the selected tile
+    desired_safe_files = find_safe_files_from_given_tileNproductlevel_within_time_interval(directories = safe_files,
+                                                                                    search_string_tile = tile, 
+                                                                            search_string_productlevel = product_level,
+                                                                            )
+    desired_safe_files.sort()
+
+    # print(desired_safe_files[:5])
+    print(len(desired_safe_files))
+    print('\n')
+    
+
+    '''
+    1. Query CDSE and check what products we do not have
+
+    2. Single out the missing products
+
+    3. Add the missing products to the download queue
+
+    4. Make the netCDF files and the datacubes - already in place
+    '''
 
 
-'''
-Create netCDF files from the SAFE files 
-
-/home/nbs/production_r8/safe_to_netcdf/create_netcdf_for_datacubes.sh
-'''
 
 
-checkNcreate_netcdfNdatacubes(products = desired_safe_files, 
-                              path2safe_catalog = path2safe_catalog, 
-                              path2dedicated_datacubes_on_demand = path2dedicated_datacubes_on_demand, 
-                              path2safe_to_netcdf = path2safe_to_netcdf, 
-                              netcdf_creator_file = netcdf_creator_file,
-                              root_path = root_path,
-                              start_sensing_date = start_time,
-                              end_sensing_date = end_time,
-                              product_type = product_type,
-                              path2second_chance_netcdf = path2netcdf_stored_in_production,
-                              )
+    '''
+    Create netCDF files from the SAFE files 
+
+    /home/nbs/production_r8/safe_to_netcdf/create_netcdf_for_datacubes.sh
+    '''
+
+
+    checkNcreate_netcdfNdatacubes(products = desired_safe_files, 
+                                  path2safe_catalog = path2safe_catalog, 
+                                  path2dedicated_datacubes_on_demand = path2dedicated_datacubes_on_demand, 
+                                  path2safe_to_netcdf = path2safe_to_netcdf, 
+                                  netcdf_creator_file = netcdf_creator_file,
+                                  root_path = root_path,
+                                  # start_sensing_date = start_time,
+                                  # end_sensing_date = end_time,
+                                  start_sensing_date = f'{year}/01/01',
+                                  end_sensing_date = f'{year}/12/31',
+                                  product_type = product_type,
+                                  path2second_chance_netcdf = path2netcdf_stored_in_production,
+                                  error_log_path = error_log_path,
+                                  )

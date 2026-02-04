@@ -325,7 +325,7 @@ def compare_ncml_files(file1, file2):
 
 import shutil
     
-def remove_safe_folders(directory):
+def remove_safe_folders(directory, year):
     """
     Remove folders ending with '.SAFE' from the specified directory.
 
@@ -338,7 +338,7 @@ def remove_safe_folders(directory):
         item_path = os.path.join(directory, item)
         
         # Check if the item is a directory and its name ends with '.SAFE'
-        if os.path.isdir(item_path) and item.endswith(".SAFE"):
+        if os.path.isdir(item_path) and item.endswith(f"{year}.SAFE"):
             print(f"Removing folder: {item_path}")
             # Remove the directory and all its contents
             shutil.rmtree(item_path)
@@ -397,7 +397,7 @@ def createNetCDFfromSAFE(product_file, product, nc_filepath, nc_file):
     return
 
 
-def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_datacubes_on_demand, path2safe_to_netcdf, netcdf_creator_file, root_path, product_type, start_sensing_date, end_sensing_date, path2second_chance_netcdf):
+def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_datacubes_on_demand, path2safe_to_netcdf, netcdf_creator_file, root_path, product_type, start_sensing_date, end_sensing_date, path2second_chance_netcdf, error_log_path):
 
     # Counters
     found = 0
@@ -521,7 +521,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
         # paths2each_single_ncfile_within_a_datacube.append(str(nc_file))
 
         # As there is created more than planned (.SAFE folders with content) - remove these for now:
-        remove_safe_folders(directory = nc_filepath)
+        remove_safe_folders(directory = nc_filepath, year = year)
 
 
         print('\n')
@@ -535,13 +535,14 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
     print(f"Total failed convertions to netCDF: {failed}")
 
     # Write the error log to a text file
-    with open(f"{tile}_error_log.txt", "w") as file:
-        for product, error_message in error_log.items():
-            file.write(f"{product}: {error_message}\n")
+    if len(error_log) > 0:
+        with open(f"{error_log_path}/{year}_{tile}_error_log.txt", "w") as file:
+            for product, error_message in error_log.items():
+                file.write(f"{product}: {error_message}\n")
 
     print("Error log written to 'error_log.txt'")
 
-    print(paths2each_single_ncfile_within_a_datacube)
+    #print(paths2each_single_ncfile_within_a_datacube)
     print('\n')
 
     # path to datacubes on demand where nc products and datacubes are saved under product level and tile
@@ -549,19 +550,19 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
     path2dedicated_datacubes_on_demand = Path(path2dedicated_datacubes_on_demand) / product_level / tile
 
 
-    p = Path(path2dedicated_datacubes_on_demand)
-    for file_path in p.iterdir():
-        if file_path.is_file():
-            print(file_path.name) # Prints only the file name
-            # To get the full path, use:
-            # print(file_path)
+    # p = Path(path2dedicated_datacubes_on_demand)
+    # for file_path in p.iterdir():
+    #     if file_path.is_file():
+    #         print(file_path.name) # Prints only the file name
+    #         # To get the full path, use:
+    #         # print(file_path)
 
     # 1. Loop through all .nc files in base_path
     nc_files = glob.glob(os.path.join(nc_filepath, "*.nc"))
     print('nc_files = ')
-    print(nc_files)
+    print(len(nc_files))
     print('paths2each_single_ncfile_within_a_datacube = ')
-    print(paths2each_single_ncfile_within_a_datacube)
+    print(len(paths2each_single_ncfile_within_a_datacube))
 
 
     
@@ -581,7 +582,8 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
         print(f"The directory '{path2spesific_datacubes_folder}' does exist.")
 
     # 3. Create filepath for datacube (base_path/S2_L2A_T32VNM_YEAR.ncml)
-    datacube_filename = f"{product_type}_{product_level}_{tile}_{date_str_start}_{date_str_end}.ncml"
+    #datacube_filename = f"{product_type}_{product_level}_{tile}_{date_str_start}_{date_str_end}.ncml"
+    datacube_filename = f"{product_type}_{product_level}_{tile}_{date_str_start[:4]}.ncml"
     datacube_filepath = os.path.join(path2spesific_datacubes_folder, datacube_filename)
     print(datacube_filepath)
 
@@ -632,7 +634,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
     # Creating/editing the datacube using Datacube from datacube.py
     datacube = Datacube(datacube_filepath)
-    for nc_path in nc_files:
+    for nc_path in paths2each_single_ncfile_within_a_datacube:
         #print(str(nc_path))
         datacube.add_product(nc_path)
 
