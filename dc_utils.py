@@ -49,95 +49,54 @@ def read_config_file(file_path):
     return config
 
 
-'''
+#'''
 from cdsetool.query import query_features
 from datetime import date, datetime
 from cdsetool.query import describe_collection
 
 def queryCDSE4products_based_on_tile_and_product_level(date_from, date_to, tile_id, product_level, collection = 'Sentinel2'):
     search_terms = describe_collection(collection).keys()
-    print(search_terms)
+    # print(search_terms)
 
-    # Break apart the year, month and day from the start date
-    date_from_year = date_from[:4]
-    date_from_month = date_from[5:7]
-    date_from_day = date_from[8:10]
+     # Extract year, month, and day from start date
+    date_from_year, date_from_month, date_from_day = map(int, date_from.split('/'))
+    start_date = date(date_from_year, date_from_month, date_from_day)
 
-    if date_from_month.startswith("0"):
-        date_from_month = date_from_month[1:]
-    if date_from_day.startswith("0"):
-        date_from_day = date_from_day[1:]    
-
-    start_date = date(int(date_from_year), int(date_from_month), int(date_from_day))
-
-    # Break apart the year, month and day from the end date
-    date_to_year = date_to[:4]
-    date_to_month = date_to[5:7]
-    date_to_day = date_to[8:10]
-
-    if date_to_month.startswith("0"):
-        date_to_month = date_to_month[1:]
-    if date_to_day.startswith("0"):
-        date_to_day = date_to_day[1:]
+    # Extract year, month, and day from end date
+    date_to_year, date_to_month, date_to_day = map(int, date_to.split('/'))
+    end_date = date(date_to_year, date_to_month, date_to_day)
 
 
-    end_date = date(int(date_to_year), int(date_to_month), int(date_to_day))
+    search_terms = {
+        "tileId": tile_id,
+        "startDate": start_date,
+        "completionDate": end_date,
+        # "processingLevel":"S2MSI2A",
+        # "processingLevel":"S2MSI1C",
+        "processingLevel": f"S2MSI{product_level[1:]}",
+        "maxRecords": '1000'
+    }
     
-
-
-
-    #tile_ids = ["32VPM"]# ["32VNM"]
-    # tile_ids = ["32VNM"]
-
-    # tile_ids=["33WXT",
-    # "33WXS",
-    # "33WWT",
-    # "33WWS",
-    # "32VKN",
-    # "32VKM",
-    # "32VLN",
-    # "32VLM",
-    # "32VNN",
-    # "32VPN",
-    # "32VNP"]
-
-
-    #for tile_id in tile_ids:
-    features = query_features(collection, 
-                            {"tileId": tile_id, 
-                            "startDate": start_date, 
-                            "completionDate": end_date,
-                            # "processingLevel":"S2MSI2A"
-                            # "processingLevel":"S2MSI1C"
-                            "processingLevel":f"S2MSI{product_level[1:]}"
-                            },
-                            )
-    print(product_level[1:])
+    # Query features
+    features = query_features(collection, search_terms)
     output = list(features)
-    print('output:')
-    print(output[0], '\n')
 
-    titles = [output[i]['properties']['title'] for i in range(len(output))]
+    print(f"There are {len(output)} products found!\n")
+    
+    # Filter products by product level
+    product_level_products = [
+        feature['properties']['title']
+        for feature in output
+        if product_level in feature['properties']['title']
+    ]
 
-    # print('titles')
-    # print(titles,'\n')
-    print(f'There are {len(titles)} products found!', '\n')
-
-    product_level_products = []
-    for tit in titles:
-        if product_level in tit:
-            product_level_products.append(tit)
-
-    print(f'There are {len(product_level_products)} {product_level} products among the query reesults')
-
-    # with open(f's2_L2A_{tile_id}_products.txt','w') as outfile:
-    #     for tit in titles:
-    #         outfile.write(tit + '\n')
-    return
+    print(f"There are {len(product_level_products)} {product_level} products among the T{tile_id} query results")
+    
+    return product_level_products
 
 
-queryCDSE4products_based_on_tile_and_product_level(date_from = '2017/01/01', date_to = '2024/12/31', tile_id = 'T33WXT'[1:], product_level = 'L2A') 
-'''
+# queryCDSE4products_based_on_tile_and_product_level(date_from = '2017/01/01', date_to = '2024/12/31', tile_id = 'T32VLN'[1:], product_level = 'L2A') 
+#'''
 
 
 
@@ -339,7 +298,7 @@ def remove_safe_folders(directory, file_name_without_extension):
         
         # Check if the item is a directory and its name ends with '.SAFE'
         if os.path.isdir(item_path) and item.endswith(f"{file_name_without_extension}.SAFE"):
-            print(f"Removing folder: {item_path}")
+            # print(f"Removing folder: {item_path}")
             # Remove the directory and all its contents
             shutil.rmtree(item_path)
 
@@ -382,10 +341,10 @@ def createNetCDFfromSAFE(product_file, product, nc_filepath, nc_file):
     # Perform the conversion if the SAFE file was read successfully
     if converter.read_ok:
         success = converter.write_to_NetCDF(nc_filepath, compression_level=4)
-        if success:
-            print(f"Conversion successful! NetCDF file saved in: {nc_file}")
-        else:
-            print("Conversion failed during NetCDF writing.")
+        # if success:
+        #     print(f"Conversion successful! NetCDF file saved in: {nc_file}")
+        # else:
+        #     print("Conversion failed during NetCDF writing.")
     else:
         print("Failed to read the SAFE file. Please check the input file.")
 
@@ -439,7 +398,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
         
 
         if not os.path.exists(nc_filepath) or not os.path.isdir(nc_filepath):
-            print(f"The directory '{nc_filepath}' does not exist. Creating it...")
+            # print(f"The directory '{nc_filepath}' does not exist. Creating it...")
             os.makedirs(nc_filepath)  # Create the directory
 
         nc_file = Path(nc_filepath) / nc_product
@@ -463,7 +422,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
         '''
         # 6. Check existence and existance of netCDF
         if zip_filepath.is_file():
-            print(f"Safe exists: {zip_filepath}")
+            #print(f"Safe exists: {zip_filepath}")
             found += 1
 
             #######################################################################################
@@ -476,7 +435,8 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
                 try:
                 
                     if check_ds4certain_variable(path2nc=nc_file, variable=variable2check) == True:
-                        print(f'{nc_file} exists and does have {variable2check} as a variable! Moving on.')
+                        # print(f'{nc_file} exists and does have {variable2check} as a variable! Moving on.')
+                        pass
                     else:
                         createNetCDFfromSAFE(product_file = product_file,
                                             product = product, 
@@ -524,7 +484,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
         remove_safe_folders(directory = nc_filepath, file_name_without_extension = product_file.replace('.zip',''))
 
 
-        print('\n')
+        # print('\n')
 
     # Print stats
     print("\n=== Summary ===")

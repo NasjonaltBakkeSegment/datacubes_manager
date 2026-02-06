@@ -10,8 +10,8 @@ from dc_utils import get_script_root_path,\
                   read_config_file,\
                   generate_date_range,\
                   find_safe_files_from_given_tileNproductlevel_within_time_interval, \
-                  checkNcreate_netcdfNdatacubes#, \
-                  #queryCDSE4products_based_on_tile_and_product_level
+                  checkNcreate_netcdfNdatacubes, \
+                  queryCDSE4products_based_on_tile_and_product_level
 
 import os
 
@@ -53,6 +53,7 @@ date_range = generate_date_range(start_date = start_time, end_date = end_time)
 # To separate each datacube by year the given date range is also devided by years
 import numpy as np
 yearly_list = np.arange(int(date_range[0][:4]), int(date_range[-1][:4])+1)
+print(f'Years for which datacubes are created:')
 print(yearly_list)
 for year in yearly_list:
 
@@ -84,7 +85,7 @@ for year in yearly_list:
     desired_safe_files.sort()
 
     # print(desired_safe_files[:5])
-    print(len(desired_safe_files))
+    print(f'Number of SAFE files found {len(desired_safe_files)} on our system for {product_level} {tile} in {year}.')
     print('\n')
     
 
@@ -98,7 +99,7 @@ for year in yearly_list:
     4. Make the netCDF files and the datacubes - already in place
     '''
 
-
+    SAFE_query_results = queryCDSE4products_based_on_tile_and_product_level(date_from = f'{year}/01/01', date_to = f'{year}/12/31', tile_id = tile_id, product_level = product_level) 
 
 
     '''
