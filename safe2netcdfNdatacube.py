@@ -100,7 +100,10 @@ for year in yearly_list:
     '''
 
     SAFE_query_results = queryCDSE4products_based_on_tile_and_product_level(date_from = f'{year}/01/01', date_to = f'{year}/12/31', tile_id = tile_id, product_level = product_level) 
-
+    SAFE_files_on_lustre = []
+    for file in desired_safe_files:
+        filename = file.split('/')[-1]
+        SAFE_files_on_lustre.append(filename)
 
     '''
     Create netCDF files from the SAFE files 
@@ -123,3 +126,23 @@ for year in yearly_list:
                                   path2second_chance_netcdf = path2netcdf_stored_in_production,
                                   error_log_path = error_log_path,
                                   )
+    
+
+    # Find items in list_a that are not in list_b
+    only_in_query = [item.replace('.SAFE','') for item in SAFE_query_results if item.replace('.SAFE','') not in SAFE_files_on_lustre]
+
+    print(f'{year} {product_level} {tile} products that only appear from querying CDSE - not on lustre:')
+    for prod in only_in_query:
+        print(prod, '\n')
+    print('\n')
+
+    # Find items in list_b that are not in list_a
+    only_in_lustre = [item.replace('.zip','') for item in SAFE_files_on_lustre if item.replace('.zip','') not in SAFE_query_results]
+
+
+    print(f'{year} {product_level} {tile} products that only appear on lustre - not in CDSE-query:')
+    if len(only_in_lustre) == 0:
+        print('No products missing!')
+    else: 
+        for prod in only_in_lustre:
+            print(prod, '\n')

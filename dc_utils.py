@@ -538,8 +538,8 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
         print(f"The directory '{path2spesific_datacubes_folder}' does not exist. Creating it...")
         os.makedirs(path2spesific_datacubes_folder)  # Create the directory
 
-    else:
-        print(f"The directory '{path2spesific_datacubes_folder}' does exist.")
+    # else:
+    #     print(f"The directory '{path2spesific_datacubes_folder}' does exist.")
 
     # 3. Create filepath for datacube (base_path/S2_L2A_T32VNM_YEAR.ncml)
     #datacube_filename = f"{product_type}_{product_level}_{tile}_{date_str_start}_{date_str_end}.ncml"
