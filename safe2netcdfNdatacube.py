@@ -129,7 +129,7 @@ for year in yearly_list:
     
 
     # Find items in list_a that are not in list_b
-    only_in_query = [item.replace('.SAFE','') for item in SAFE_query_results if item.replace('.SAFE','') not in SAFE_files_on_lustre]
+    only_in_query = [item.replace('.SAFE','') for item in SAFE_query_results if item.replace('.SAFE','.zip') not in SAFE_files_on_lustre]
 
     print(f'{year} {product_level} {tile} products that only appear from querying CDSE - not on lustre:')
     for prod in only_in_query:
@@ -137,7 +137,7 @@ for year in yearly_list:
     print('\n')
 
     # Find items in list_b that are not in list_a
-    only_in_lustre = [item.replace('.zip','') for item in SAFE_files_on_lustre if item.replace('.zip','') not in SAFE_query_results]
+    only_in_lustre = [item.replace('.zip','') for item in SAFE_files_on_lustre if item.replace('.zip','.SAFE') not in SAFE_query_results]
 
 
     print(f'{year} {product_level} {tile} products that only appear on lustre - not in CDSE-query:')
