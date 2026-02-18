@@ -132,17 +132,25 @@ for year in yearly_list:
     only_in_query = [item.replace('.SAFE','') for item in SAFE_query_results if item.replace('.SAFE','.zip') not in SAFE_files_on_lustre]
 
     print(f'{year} {product_level} {tile} products that only appear from querying CDSE - not on lustre:')
-    for prod in only_in_query:
-        print(prod, '\n')
+    if len(only_in_query) == 0:
+        print('No products missing from lustre!')
+    else:
+        for prod in only_in_query:
+            print(prod, '\n')
+   
+    print(f'There are {len(only_in_query)} products missing on lustre')
     print('\n')
 
     # Find items in list_b that are not in list_a
     only_in_lustre = [item.replace('.zip','') for item in SAFE_files_on_lustre if item.replace('.zip','.SAFE') not in SAFE_query_results]
 
-
+    '''
     print(f'{year} {product_level} {tile} products that only appear on lustre - not in CDSE-query:')
     if len(only_in_lustre) == 0:
-        print('No products missing!')
+        print('No products missing from the query!')
     else: 
         for prod in only_in_lustre:
             print(prod, '\n')
+    print(f'There are {len(only_in_lustre)} products missing fromthe CDSE-query.')
+    '''
+

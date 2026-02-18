@@ -203,9 +203,11 @@ def remove_safe_folders(directory, file_name_without_extension):
 from pathlib import Path
 # from subprocess import call
 import subprocess
+
 from datacube import Datacube
 
 import sys
+import os
 
 # Save the original sys.path
 original_sys_path = sys.path.copy()
@@ -213,17 +215,27 @@ original_sys_path = sys.path.copy()
 # Get the current script's directory
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
-# Get the neighboring folder path (safe_to_netcdf)
-neighboring_folder_path = os.path.join(current_dir, '..', 'safe_to_netcdf')
-
-# Prepend the neighboring folder to sys.path to prioritize its utils.py
-sys.path.insert(0, neighboring_folder_path)
+# Add the neighboring folder 'safe_to_netcdf' to sys.path
+neighboring_folder_path_safe_to_netcdf = os.path.join(current_dir, '..', 'safe_to_netcdf')
+sys.path.insert(0, neighboring_folder_path_safe_to_netcdf)
 
 # Import Sentinel2_reader_and_NetCDF_converter
 from s2_reader_and_NetCDF_converter import Sentinel2_reader_and_NetCDF_converter
 
 import utils
 print(f"Using utils.py from: {utils.__file__}")
+
+# Add the neighboring folder 'cdse_synchroniser' to sys.path
+neighboring_folder_path_cdse_synchroniser = os.path.join(current_dir, '..', 'cdse_synchroniser')
+sys.path.insert(0, neighboring_folder_path_cdse_synchroniser)
+
+# Import both the `database` module and the `Database` class
+import lib.database as database
+from lib.database import Database
+
+# Print the path of the imported database module
+print(f"Using database.py from: {database.__file__}")
+
 
 def createNetCDFfromSAFE(product_file, product, nc_filepath, nc_file):
     # try:
