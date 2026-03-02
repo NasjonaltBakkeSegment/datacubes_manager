@@ -85,7 +85,7 @@ def queryCDSE4products_based_on_tile_and_product_level(date_from, date_to, tile_
     
     # Filter products by product level
     product_level_products = [
-        feature['properties']['title']
+        (feature['id'], feature['properties']['title'])
         for feature in output
         if product_level in feature['properties']['title']
     ]
@@ -470,3 +470,67 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
     # remove_safe_folders(directory = path2dedicated_datacubes_on_demand)
 
     return
+
+def filter_tuples_by_titles(tuple_list, title_list):
+        """
+        Filters tuples based on whether the title in the tuple (without its extension) 
+        matches a title in the title list. The resulting list contains tuples with titles
+        stripped of their extensions.
+
+        Args:
+            tuple_list (list of tuples): A list of tuples in the format (id, title) where title has a ".SAFE" extension.
+            title_list (list of str): A list of titles with a ".zip" extension.
+
+        Returns:
+            list of tuples: A list of tuples where the title matches the title list, stripped of its extension.
+        """
+        # Helper function to remove the file extension
+        def strip_extension(title):
+            return title.rsplit('.', 1)[0]  # Split by the last '.' and take the base name
+
+        # Normalize the title list by stripping the ".zip" extension
+        normalized_titles = [strip_extension(title) for title in title_list]
+
+        # Filter the tuples, normalize their titles, and remove extensions in the final result
+        filtered_list = [(id_, title) for id_, title in tuple_list if strip_extension(title) not in normalized_titles]
+
+        return filtered_list
+
+def writing_missing_products_2_file(tile, tuple_list, file_path):
+    """
+    Saves the tile and its corresponding list of ID-title tuples to a .txt file as a dictionary.
+    Each tile is written as a new entry in the file, without using any external packages.
+
+    Args:
+        tile (str): The tile name.
+        tuple_list (list of tuples): A list of tuples in the format (id, title) for the given tile.
+        file_path (str): Path to the .txt file where the data should be saved.
+
+    Returns:
+        None
+    """
+    # Manually construct the dictionary string
+    tuple_list_str = "[" + ", ".join(f"({id_}, '{title}')" for id_, title in tuple_list) + "]"
+    tile_data_str = f"{{'{tile}': {tuple_list_str}}}\n"
+
+    # Append the dictionary string to the file
+    with open(file_path, 'a') as file:
+        file.write(tile_data_str)
+
+    return
+
+
+from synchronise_on_demand import synchronise_on_demand
+
+def SynchOnDemand(list_of_products,
+                  # config, # might need to split this
+                  config_platform, # Add the file paths of these to the config in datacubes_manager
+                  config_mission,
+                  config_general):
+     
+    synchronise_on_demand(list_of_products, \
+                  config_platform, # Add the file paths of these to the config in datacubes_manager \
+                  config_mission, \
+                  config_general)
+    return
+    
