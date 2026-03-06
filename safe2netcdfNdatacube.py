@@ -31,7 +31,7 @@ config = read_config_file(config_file_path)
 start_time = config['start_sensing_date']
 end_time = config['end_sensing_date']
 tiles = config['tile']
-tile_id = tile[1:] # Removing the first 'T' - This is used for the CDSE query
+# tile_id = tile[1:] # Removing the first 'T' - This is used for the CDSE query
 path2safe_catalog = config['path2safe_catalog']
 product_type = config['product_type']
 product_level = config['product_level']
@@ -46,7 +46,13 @@ config_mission_path = config['config_mission_path']
 config_general_path = config['config_general_path']
 
 complete_list_only_in_query = []
+# Ensure that tiles is a list that can be run through
+if isinstance(tiles, str):
+    tiles = [tiles]
+
 for tile in tiles:
+
+    tile_id = tile[1:] # Removing the first 'T' - This is used for the CDSE query
 
     # Extract the dates on a YYYY/MM/DD format between the selected start and end date 
     date_range = generate_date_range(start_date = start_time, end_date = end_time)
@@ -181,4 +187,5 @@ for tile in tiles:
         
 
 print('The complete list of SAFE products missing on lustre for this run:')
-print(complete_list_only_in_query)
+print(len(complete_list_only_in_query), complete_list_only_in_query)
+

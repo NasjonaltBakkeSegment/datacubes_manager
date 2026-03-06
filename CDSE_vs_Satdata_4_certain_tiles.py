@@ -46,7 +46,14 @@ config_platform_path = config['config_platform_path']
 config_mission_path = config['config_mission_path']
 config_general_path = config['config_general_path']
 
+complete_list_only_in_query = []
+# Ensure that tiles is a list that can be run through
+if isinstance(tiles, str):
+    tiles = [tiles]
+
 for tile in tiles:
+
+    tile_id = tile[1:] # Removing the first 'T' - This is used for the CDSE query
 
     # Extract the dates on a YYYY/MM/DD format between the selected start and end date 
     date_range = generate_date_range(start_date = start_time, end_date = end_time)
@@ -104,6 +111,8 @@ for tile in tiles:
 
         only_in_query = filter_tuples_by_titles(tuple_list = SAFE_query_results, 
                                                 title_list = SAFE_files_on_lustre)
+        
+        complete_list_only_in_query.extend(only_in_query)
 
         print(f'{year} {product_level} {tile} products that only appear from querying CDSE - not on lustre:')
         if len(only_in_query) == 0:
@@ -134,6 +143,8 @@ for tile in tiles:
                                         file_path = root_path+'/'+'missing_products_compared_2_CDSE.txt')
 
 
+print('The complete list of SAFE products missing on lustre for this run:')
+print(len(complete_list_only_in_query), complete_list_only_in_query)
 
     
     

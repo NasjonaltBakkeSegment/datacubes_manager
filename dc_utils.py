@@ -542,6 +542,33 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
     return
 
+def filter_tuples_by_titles(tuple_list, title_list):
+        """
+        Filters tuples based on whether the title in the tuple (without its extension) 
+        matches a title in the title list. The resulting list contains tuples with titles
+        stripped of their extensions.
+
+        Args:
+            tuple_list (list of tuples): A list of tuples in the format (id, title) where title has a ".SAFE" extension.
+            title_list (list of str): A list of titles with a ".zip" extension.
+
+        Returns:
+            list of tuples: A list of tuples where the title matches the title list, stripped of its extension.
+        """
+        # Helper function to remove the file extension
+        def strip_extension(title):
+            return title.rsplit('.', 1)[0]  # Split by the last '.' and take the base name
+
+        # Normalize the title list by stripping the ".zip" extension
+        normalized_titles = [strip_extension(title) for title in title_list]
+
+        # Filter the tuples, normalize their titles, and remove extensions in the final result
+        filtered_list = [(id_, title) for id_, title in tuple_list if strip_extension(title) not in normalized_titles]
+
+        return filtered_list
+
+
+
 def writing_missing_products_2_file(tile, tuple_list, file_path):
     """
     Updates the tile's data in a .txt file by updating the entire dictionary each time.
