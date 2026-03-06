@@ -32,12 +32,17 @@ def read_config_file(file_path):
                     # Split into variable and content, stripping extra spaces around them
                     variable, content = map(str.strip, line.split(':', 1))
                     
-                    # Try to parse the content as a Python literal (e.g., a list, number, etc.)
-                    try:
-                        parsed_content = ast.literal_eval(content)
-                    except (ValueError, SyntaxError):
-                        # If parsing fails, keep the content as a string
-                        parsed_content = content
+                    # Handle tiles or comma-separated strings as lists
+                    if ',' in content:
+                        # Split by commas and strip whitespace from each item
+                        parsed_content = [item.strip() for item in content.split(',')]
+                    else:
+                        # Try to parse the content as a Python literal (e.g., a list, number, etc.)
+                        try:
+                            parsed_content = ast.literal_eval(content)
+                        except (ValueError, SyntaxError):
+                            # If parsing fails, keep the content as a string
+                            parsed_content = content
                     
                     # Add the parsed variable and content to the dictionary
                     config[variable] = parsed_content
@@ -49,7 +54,7 @@ def read_config_file(file_path):
     return config
 
 
-#'''
+''' # Old query function that stopped working - 'Sentinel2' suddenly not viable collection
 from cdsetool.query import query_features
 from datetime import date, datetime
 from cdsetool.query import describe_collection
@@ -95,10 +100,76 @@ def queryCDSE4products_based_on_tile_and_product_level(date_from, date_to, tile_
     return product_level_products
 
 
-# queryCDSE4products_based_on_tile_and_product_level(date_from = '2017/01/01', date_to = '2024/12/31', tile_id = 'T32VLN'[1:], product_level = 'L2A') 
+queryCDSE4products_based_on_tile_and_product_level(date_from = '2017/01/01', date_to = '2024/12/31', tile_id = 'T32VLN'[1:], product_level = 'L2A') 
 #'''
 
 
+#'''
+import requests 
+import pandas as pd 
+import urllib.parse 
+from datetime import datetime, timedelta 
+
+base_url = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products?$filter=" # Odata
+
+def queryCDSE4products_based_on_tile_and_product_level(date_from, date_to, tile_id, product_level, base_url=base_url, collection='SENTINEL-2'):     
+    """     
+    Queries CDSE for products in a given collection and polygon     
+    
+    :param base_url: OData base URL for CDSE     
+    :param collection_name: Name of the collection to query   
+    :param date_from: Start date of the query (ISO format)     
+    :param date_to: End date of the query (ISO format)
+    :param product_level: Name of the product level to query 
+    :param tile: Tile IDs to query    
+    :return: DataFrame including metadata for products     
+    """
+
+    query = (
+        f"{base_url}"
+        f"Collection/Name eq '{collection}' and "
+        f"Attributes/OData.CSC.StringAttribute/any(att:att/Name eq 'productType' and att/OData.CSC.StringAttribute/Value eq 'S2MSI{product_level[1:]}') and "
+        f"Attributes/OData.CSC.StringAttribute/any(att:att/Name eq 'tileId' and att/OData.CSC.StringAttribute/Value eq '{tile_id}') and " 
+        f"ContentDate/End gt {date_from.replace('/','-')}T00:00:00.000Z and "
+        f"ContentDate/End lt {date_to.replace('/','-')}T23:59:59.599Z"
+        "&$orderby=ContentDate/End desc"
+        # "&$expand=Attributes" # option to see expanded Attributes within products[i] below
+        "&$count=False"
+        f"&$top=1000"
+    )
+
+    products = []
+
+    while query:
+
+        r = requests.get(query)
+        # print(r) # = <Response [200]> if working correctly
+        if r.ok:
+            response = r.json()
+            products.extend(response.get('value', []))
+            query = response.get('@odata.nextLink')
+            # print(response.get('@odata.count')) # if count=True
+
+    # Visualising the query results
+    # print(products[0], '\n')
+    # print(products[-1], '\n')
+
+    print(f"There are {len(products)} products found on CDSE!\n")
+
+    # Extracting Id and Name into list of tuples ('Id', 'Name') - with an extra check to see if the function returns products within correct productLevel and tileId 
+    product_level_products = [
+        (product.get('Id'), product.get('Name'))
+        for product in products
+        if product_level and 'T'+tile_id in product.get('Name')
+    ]
+
+    print(f"There are {len(product_level_products)} {product_level} products among the T{tile_id} query results")
+    
+    return product_level_products
+
+# print(queryCDSE4products_based_on_tile_and_product_level(date_from = '2024/01/01', date_to = '2024/12/31', tile_id = '32VLN', product_level = 'L2A'))
+# queryCDSE4products_based_on_tile_and_product_level(date_from = '2024/01/01', date_to = '2024/12/31', tile_id = '32VLN', product_level = 'L2A')
+#'''
 
 from datetime import datetime, timedelta
 
@@ -471,51 +542,52 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
     return
 
-def filter_tuples_by_titles(tuple_list, title_list):
-        """
-        Filters tuples based on whether the title in the tuple (without its extension) 
-        matches a title in the title list. The resulting list contains tuples with titles
-        stripped of their extensions.
-
-        Args:
-            tuple_list (list of tuples): A list of tuples in the format (id, title) where title has a ".SAFE" extension.
-            title_list (list of str): A list of titles with a ".zip" extension.
-
-        Returns:
-            list of tuples: A list of tuples where the title matches the title list, stripped of its extension.
-        """
-        # Helper function to remove the file extension
-        def strip_extension(title):
-            return title.rsplit('.', 1)[0]  # Split by the last '.' and take the base name
-
-        # Normalize the title list by stripping the ".zip" extension
-        normalized_titles = [strip_extension(title) for title in title_list]
-
-        # Filter the tuples, normalize their titles, and remove extensions in the final result
-        filtered_list = [(id_, title) for id_, title in tuple_list if strip_extension(title) not in normalized_titles]
-
-        return filtered_list
-
 def writing_missing_products_2_file(tile, tuple_list, file_path):
     """
-    Saves the tile and its corresponding list of ID-title tuples to a .txt file as a dictionary.
-    Each tile is written as a new entry in the file, without using any external packages.
-
+    Updates the tile's data in a .txt file by updating the entire dictionary each time.
+    If the tile already exists, its value is updated by adding new tuples to the existing ones.
+    If the tile does not exist, a new key-value pair is added.
+    The list of tuples is sorted alphabetically by the title before saving.
+    
     Args:
         tile (str): The tile name.
         tuple_list (list of tuples): A list of tuples in the format (id, title) for the given tile.
-        file_path (str): Path to the .txt file where the data should be saved.
-
+        file_path (str): Path to the .txt file where the data should be stored.
+    
     Returns:
         None
     """
-    # Manually construct the dictionary string
-    tuple_list_str = "[" + ", ".join(f"({id_}, '{title}')" for id_, title in tuple_list) + "]"
-    tile_data_str = f"{{'{tile}': {tuple_list_str}}}\n"
+    # Initialize an empty dictionary to hold the tile data
+    tile_data = {}
 
-    # Append the dictionary string to the file
-    with open(file_path, 'a') as file:
-        file.write(tile_data_str)
+    # Read the existing file content (if it exists)
+    try:
+        with open(file_path, 'r') as file:
+            # Read the file and evaluate its content as a Python dictionary
+            content = file.read().strip()
+            if content:
+                tile_data = eval(content)  # Convert the string back to a dictionary
+    except FileNotFoundError:
+        # If the file doesn't exist, start with an empty dictionary
+        pass
+    except SyntaxError:
+        # If the file is not properly formatted, start fresh
+        pass
+
+    # If the tile already exists, append the new tuples to the existing list
+    if tile in tile_data:
+        existing_tuples = tile_data[tile]
+        # Avoid duplicating tuples by using a set
+        updated_tuples = list(set(existing_tuples + tuple_list))
+        # Sort the list of tuples alphabetically by title (second element of each tuple)
+        tile_data[tile] = sorted(updated_tuples, key=lambda x: x[1])
+    else:
+        # Sort the new list of tuples before adding
+        tile_data[tile] = sorted(tuple_list, key=lambda x: x[1])
+
+    # Write the updated dictionary back to the .txt file
+    with open(file_path, 'w') as file:
+        file.write(str(tile_data))  # Convert the dictionary to a string and write it
 
     return
 
