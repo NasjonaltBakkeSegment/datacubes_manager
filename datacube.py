@@ -12,7 +12,7 @@ class Datacube:
         self._tree = None
         self._root = None
         self._aggregation = None
-        if os.path.exists(self.ncml_path):
+        if os.path.exists(self.ncml_path) and os.path.getsize(self.ncml_path) > 0:
             self._load_ncml()
 
     def _load_ncml(self):
