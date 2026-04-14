@@ -188,6 +188,7 @@ class Datacube:
         Remove duplicate products, retaining only the one with the latest baseline.
         If multiple products have the same baseline, retain the one with the latest second timestamp.
         '''
+        #! Deprecated. If similar products are from different overlapping datastrips they should both be kept. This function does not have this functionality.
         if self._aggregation is None:
             print("No aggregation found in NCML.")
             return
