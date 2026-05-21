@@ -12,9 +12,11 @@ from dc_utils import get_script_root_path,\
                      find_safe_files_from_given_tileNproductlevel_within_time_interval, \
                      checkNcreate_netcdfNdatacubes, \
                      queryCDSE4products_based_on_tile_and_product_level, \
+                     filter_products_by_latest_publication_date, \
                      filter_tuples_by_titles, \
                      writing_missing_products_2_file, \
                      SynchOnDemand
+                     #  filter_dict_by_filename, \
                   
 
 
@@ -66,7 +68,8 @@ for tile in tiles:
     for year in yearly_list:
 
         yearly_date_range = generate_date_range(start_date = f'{year}/{start_time[5:]}', end_date = f'{year}/{end_time[5:]}')
-
+        print(f'start_date = {yearly_date_range[0]}')
+        print(f'end_date = {yearly_date_range[-1]}')
 
         
         # Run through all possible safe files for product_type* (e.g. S2*) products within the date range
@@ -109,6 +112,9 @@ for tile in tiles:
         # # Find items in list_a that are not in list_b
         # only_in_query = [item.replace('.SAFE','') for item in SAFE_query_results if item.replace('.SAFE','.zip') not in SAFE_files_on_lustre]
 
+        # Filter the query result to make sure that they only include the latest version of each product
+        #filtered_SAFE_query_results = filter_products_by_latest_publication_date(SAFE_query_results)
+
         only_in_query = filter_tuples_by_titles(tuple_list = SAFE_query_results, 
                                                 title_list = SAFE_files_on_lustre)
         
@@ -140,11 +146,11 @@ for tile in tiles:
         # Collecting missing products in a .txt
         writing_missing_products_2_file(tile = tile, 
                                         tuple_list = only_in_query, 
-                                        file_path = root_path+'/'+'missing_products_compared_2_CDSE.txt')
+                                        file_path = root_path+'/'+'missing_products_compared_2_CDSE.json')
 
 
 print('The complete list of SAFE products missing on lustre for this run:')
-print(len(complete_list_only_in_query), complete_list_only_in_query)
+print(complete_list_only_in_query, len(complete_list_only_in_query))
 
     
     

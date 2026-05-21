@@ -12,6 +12,7 @@ from dc_utils import get_script_root_path,\
                      find_safe_files_from_given_tileNproductlevel_within_time_interval, \
                      checkNcreate_netcdfNdatacubes, \
                      queryCDSE4products_based_on_tile_and_product_level, \
+                     filter_products_by_latest_publication_date, \
                      filter_tuples_by_titles, \
                      SynchOnDemand
                   
@@ -72,8 +73,8 @@ for tile in tiles:
     for year in yearly_list:
 
         yearly_date_range = generate_date_range(start_date = f'{year}/{start_time[5:]}', end_date = f'{year}/{end_time[5:]}')
-
-
+        print(f'start_date = {yearly_date_range[0]}')
+        print(f'end_date = {yearly_date_range[-1]}')
         
         # Run through all possible safe files for product_type* (e.g. S2*) products within the date range
         safe_files = []
@@ -125,7 +126,12 @@ for tile in tiles:
         # # Find items in list_a that are not in list_b
         # only_in_query = [item.replace('.SAFE','') for item in SAFE_query_results if item.replace('.SAFE','.zip') not in SAFE_files_on_lustre]
 
-        only_in_query = filter_tuples_by_titles(tuple_list = SAFE_query_results, 
+        # Filter the query result to make sure that they only include the latest version of each product
+        #filtered_SAFE_query_results = filter_products_by_latest_publication_date(SAFE_query_results)
+
+        only_in_query = filter_tuples_by_titles(
+                                                tuple_list = SAFE_query_results,
+                                                #tuple_list = filtered_SAFE_query_results, 
                                                 title_list = SAFE_files_on_lustre)
 
         print(f'{year} {product_level} {tile} products that only appear from querying CDSE - not on lustre:')
@@ -153,7 +159,7 @@ for tile in tiles:
         print(f'There are {len(only_in_lustre)} products missing fromthe CDSE-query.')
         '''
 
-        #'''
+        '''
         if len(only_in_query) > 0:
             # Install the missing products on lustre from CDSE
             SynchOnDemand(list_of_products = only_in_query,

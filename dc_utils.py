@@ -291,10 +291,29 @@ neighboring_folder_path_safe_to_netcdf = os.path.join(current_dir, '..', 'safe_t
 sys.path.insert(0, neighboring_folder_path_safe_to_netcdf)
 
 # Import Sentinel2_reader_and_NetCDF_converter
-from s2_reader_and_NetCDF_converter import Sentinel2_reader_and_NetCDF_converter
+# from s2_reader_and_NetCDF_converter import Sentinel2_reader_and_NetCDF_converter
+from transform import transform
 
-import utils
-print(f"Using utils.py from: {utils.__file__}")
+# Add the 'config' subfolder of 'safe_to_netcdf' to sys.path
+config_folder_path = os.path.join(neighboring_folder_path_safe_to_netcdf, 'config')
+sys.path.insert(0, config_folder_path)
+
+
+# Verify the config folder is in sys.path
+print(f"Added config folder to sys.path: {config_folder_path}")
+
+# List the files in the config folder to verify it is accessible
+if os.path.exists(config_folder_path) and os.path.isdir(config_folder_path):
+    files_in_config = os.listdir(config_folder_path)
+    print("Files in the config folder:")
+    for file_name in files_in_config:
+        print(f"- {file_name}")
+else:
+    print(f"Config folder does not exist or is not a directory: {config_folder_path}")
+
+
+# import utils
+# print(f"Using utils.py from: {utils.__file__}")
 
 # Add the neighboring folder 'cdse_synchroniser' to sys.path
 neighboring_folder_path_cdse_synchroniser = os.path.join(current_dir, '..', 'cdse_synchroniser')
@@ -308,30 +327,47 @@ from lib.database import Database
 print(f"Using database.py from: {database.__file__}")
 
 
-def createNetCDFfromSAFE(product_file, product, nc_filepath, nc_file):
-    # try:
-    #     result = subprocess.run(command, check=True, text=True, capture_output=True)
-    #     print("Script output:")
-    #     print(result.stdout)  # Print the output of the external script
+# def createNetCDFfromSAFE(product_file, product, nc_filepath, nc_file):
     
-    # Initialize the Sentinel2 reader and converter
-    converter = Sentinel2_reader_and_NetCDF_converter(product=product_file.replace('.zip',''), # Filename without extension
-                                                        indir=Path(product).parent,            # Path to parent folder of the product
-                                                    outdir=nc_filepath)                     # Output directory of the NetCDF output file (the parent folder)
-    # Perform the conversion if the SAFE file was read successfully
-    if converter.read_ok:
-        success = converter.write_to_NetCDF(nc_filepath, compression_level=4)
-        # if success:
-        #     print(f"Conversion successful! NetCDF file saved in: {nc_file}")
-        # else:
-        #     print("Conversion failed during NetCDF writing.")
+#     # Initialize the Sentinel2 reader and converter
+#     converter = Sentinel2_reader_and_NetCDF_converter(product=product_file.replace('.zip',''), # Filename without extension
+#                                                         indir=Path(product).parent,            # Path to parent folder of the product
+#                                                     outdir=nc_filepath)                     # Output directory of the NetCDF output file (the parent folder)
+#     # Perform the conversion if the SAFE file was read successfully
+#     if converter.read_ok:
+#         success = converter.write_to_NetCDF(nc_filepath, compression_level=4)
+#         # if success:
+#         #     print(f"Conversion successful! NetCDF file saved in: {nc_file}")
+#         # else:
+#         #     print("Conversion failed during NetCDF writing.")
+#     else:
+#         print("Failed to read the SAFE file. Please check the input file.")
+
+#     # except subprocess.CalledProcessError as e:
+#     #     print("Error occurred while running the script:")
+#     #     print(e.stderr)
+#     print(f'{nc_file} does not exist! Creating this.')
+
+#     return
+
+def createNetCDFfromSAFE(product_file, product, nc_file):
+
+    # Check if the zip file is in place on lustre
+    if Path(product).is_file():
+         
+        # Initialize the transformer
+        transform(product_name = product_file.replace('.zip',''), # Filename without extension
+                  safedir=str(Path(product).parent),              # Path to parent folder of the product
+                  netcdfdir=str(Path(nc_file).parent),                              # Output directory of the NetCDF output file (the parent folder)
+                  target = "netCDF",                              # Target format, either 'netCDF' or 'geoTIFF'
+                  tmpdir='/lustre/storeB/project/NBS2/sentinel/production/NorwAREA/temporary_storage',
+                  global_attributes_config = '/home/nbs/production_r8/safe_to_netcdf/config/global_attributes.yaml',
+                  variable_attributes_config = '/home/nbs/production_r8/safe_to_netcdf/config/variable_attributes.yaml',
+    )
+        print(f'{nc_file} does not exist! Creating this.')
+    
     else:
         print("Failed to read the SAFE file. Please check the input file.")
-
-    # except subprocess.CalledProcessError as e:
-    #     print("Error occurred while running the script:")
-    #     print(e.stderr)
-    print(f'{nc_file} does not exist! Creating this.')
 
     return
 
@@ -359,7 +395,10 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
         # 2. Create variable 'zip_product' replacing .SAFE with .zip
         zip_product = product_file#.replace(".SAFE", ".zip")
-        nc_product = product_file.replace(".zip", ".nc")
+        if "SAFE.zip" in product_file:
+            nc_product = product_file.replace(".SAFE.zip",".nc")
+        else:
+            nc_product = product_file.replace(".zip", ".nc")
 
         # 3. Extract year, month, and day (from the first date in the string, after 'MSIL2A_')
         datetime = product_file.split("_")[2]  # e.g., 20150818T110046
@@ -409,7 +448,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
             # Variable to check
             variable2check = 'cloud_coverage'
-
+            
             if nc_file.is_file():
 
                 try:
@@ -420,7 +459,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
                     else:
                         createNetCDFfromSAFE(product_file = product_file,
                                             product = product, 
-                                        nc_filepath = nc_filepath, 
+                                        # nc_filepath = nc_filepath, 
                                             nc_file = nc_file,
                                         )
                         found_but_no_nc += 1
@@ -437,12 +476,12 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
             elif not nc_file.is_file():
 
                 try:
-
+            
                     createNetCDFfromSAFE(product_file = product_file,
-                                            product = product, 
-                                        nc_filepath = nc_filepath, 
-                                            nc_file = nc_file,
-                                        )
+                                              product = product, 
+                                        # nc_filepath = nc_filepath, 
+                                              nc_file = nc_file,
+                                    )
                     found_but_no_nc += 1
 
                     # Keep all nc paths in a list 
@@ -451,8 +490,12 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
                 except Exception as e:
                     # If an exception occurs, log the product and the error message
                     error_log[product] = str(e)
+                    print(f'Failed to write {product_file}to NetCDF: {error_log[product]}, \n')
                     failed +=1
 
+
+            # As there is created more than planned (.SAFE folders with content) - remove these for now:
+            remove_safe_folders(directory = nc_filepath, file_name_without_extension = product_file.replace('.zip',''))
         else:
             print(f"Missing: {zip_filepath}")
             missing += 1
@@ -461,7 +504,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
         # paths2each_single_ncfile_within_a_datacube.append(str(nc_file))
 
         # As there is created more than planned (.SAFE folders with content) - remove these for now:
-        remove_safe_folders(directory = nc_filepath, file_name_without_extension = product_file.replace('.zip',''))
+        #remove_safe_folders(directory = nc_filepath, file_name_without_extension = product_file.replace('.zip',''))
 
 
         # print('\n')
@@ -542,6 +585,76 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
     return
 
+# # This can be used if one wants to evaluate the entire dict all together
+# def filter_dict_by_filename(tile_dict):
+#     def extract_filename(product_name):
+#         """Extract the filename without the publication date."""
+#         return product_name.split('.', 1)[0][:-15]  # Remove the last 15 characters (YYYYMMDDTHHMMSS)
+    
+#     def extract_publication_date(product_name):
+#         """Extract the publication date as a sortable string."""
+#         return product_name[-15:]  # Extract the last 15 characters YYYYMMDDTHHMMSS
+
+#     # Step 1: Create a mapping of filenames to their latest product
+#     filename_to_latest_product = {}
+#     for product_list in tile_dict.values():
+#         for product_id, product_name in product_list:
+#             filename = extract_filename(product_name)
+#             publication_date = extract_publication_date(product_name)
+#             # Check if this filename already exists in the map
+#             if filename not in filename_to_latest_product:
+#                 filename_to_latest_product[filename] = [product_id, product_name]
+#             else:
+#                 # Compare publication dates and update if this one is newer
+#                 existing_date = extract_publication_date(filename_to_latest_product[filename][1])
+#                 if publication_date > existing_date:
+#                     filename_to_latest_product[filename] = [product_id, product_name]
+    
+#     # Step 2: Build the filtered dictionary
+#     filtered_dict = {}
+#     for tile, product_list in tile_dict.items():
+#         filtered_list = []
+#         for product_id, product_name in product_list:
+#             filename = extract_filename(product_name)
+#             # Add the product only if it matches the latest product for the filename
+#             if filename_to_latest_product[filename] == [product_id, product_name]:
+#                 filtered_list.append([product_id, product_name])
+#         if filtered_list:
+#             filtered_dict[tile] = filtered_list
+
+#     return filtered_dict
+
+def filter_products_by_latest_publication_date(product_list):
+    def extract_filename(product_name):
+        """Extract the filename without the publication date."""
+        return product_name.split('.', 1)[0][:-15]  # Remove the last 15 characters (YYYYMMDDTHHMMSS)
+    
+    def extract_publication_date(product_name):
+        """Extract the publication date as a datetime object."""
+        publication_date_str = product_name.split('.', 1)[0][-15:]  # Extract the last 15 characters
+        # Convert the string to a datetime object
+        return datetime.strptime(publication_date_str, "%Y%m%dT%H%M%S")
+
+    # Step 1: Create a mapping of filenames to their latest product
+    filename_to_latest_product = {}
+    for product_id, product_name in product_list:
+        filename = extract_filename(product_name)
+        publication_date = extract_publication_date(product_name)
+        
+        if filename not in filename_to_latest_product:
+            # Add new entry if filename is not already present
+            filename_to_latest_product[filename] = [product_id, product_name, publication_date]
+        else:
+            # Compare publication dates using the datetime objects
+            existing_date = filename_to_latest_product[filename][2]
+            if publication_date > existing_date:
+                # Replace the old entry with the new one
+                filename_to_latest_product[filename] = [product_id, product_name, publication_date]
+
+    # Step 2: Return the filtered list of products (remove the datetime from the output)
+    return [[product_id, product_name] for product_id, product_name, _ in filename_to_latest_product.values()]
+
+
 def filter_tuples_by_titles(tuple_list, title_list):
         """
         Filters tuples based on whether the title in the tuple (without its extension) 
@@ -557,7 +670,7 @@ def filter_tuples_by_titles(tuple_list, title_list):
         """
         # Helper function to remove the file extension
         def strip_extension(title):
-            return title.rsplit('.', 1)[0]  # Split by the last '.' and take the base name
+            return title.split('.', 1)[0]  # Split by the last '.' and take the base name
 
         # Normalize the title list by stripping the ".zip" extension
         normalized_titles = [strip_extension(title) for title in title_list]
@@ -569,17 +682,69 @@ def filter_tuples_by_titles(tuple_list, title_list):
 
 
 
+# def writing_missing_products_2_file(tile, tuple_list, file_path):
+#     """
+#     Updates the tile's data in a .txt file by updating the entire dictionary each time.
+#     If the tile already exists, its value is updated by adding new tuples to the existing ones.
+#     If the tile does not exist, a new key-value pair is added.
+#     The list of tuples is sorted alphabetically by the title before saving.
+    
+#     Args:
+#         tile (str): The tile name.
+#         tuple_list (list of tuples): A list of tuples in the format (id, title) for the given tile.
+#         file_path (str): Path to the .txt file where the data should be stored.
+    
+#     Returns:
+#         None
+#     """
+#     # Initialize an empty dictionary to hold the tile data
+#     tile_data = {}
+
+#     # Read the existing file content (if it exists)
+#     try:
+#         with open(file_path, 'r') as file:
+#             # Read the file and evaluate its content as a Python dictionary
+#             content = file.read().strip()
+#             if content:
+#                 tile_data = eval(content)  # Convert the string back to a dictionary
+#     except FileNotFoundError:
+#         # If the file doesn't exist, start with an empty dictionary
+#         pass
+#     except SyntaxError:
+#         # If the file is not properly formatted, start fresh
+#         pass
+
+#     # If the tile already exists, append the new tuples to the existing list
+#     if tile in tile_data:
+#         existing_tuples = tile_data[tile]
+#         # Avoid duplicating tuples by using a set
+#         updated_tuples = list(set(existing_tuples + tuple_list))
+#         # Sort the list of tuples alphabetically by title (second element of each tuple)
+#         tile_data[tile] = sorted(updated_tuples, key=lambda x: x[1])
+#     else:
+#         # Sort the new list of tuples before adding
+#         tile_data[tile] = sorted(tuple_list, key=lambda x: x[1])
+
+#     # Write the updated dictionary back to the .txt file
+#     with open(file_path, 'w') as file:
+#         file.write(str(tile_data))  # Convert the dictionary to a string and write it
+
+#     return
+
+import json
+
 def writing_missing_products_2_file(tile, tuple_list, file_path):
     """
-    Updates the tile's data in a .txt file by updating the entire dictionary each time.
+    Updates the tile's data in a JSON file by updating the entire dictionary each time.
     If the tile already exists, its value is updated by adding new tuples to the existing ones.
     If the tile does not exist, a new key-value pair is added.
+    Duplicate (id, title) pairs are automatically removed.
     The list of tuples is sorted alphabetically by the title before saving.
     
     Args:
         tile (str): The tile name.
         tuple_list (list of tuples): A list of tuples in the format (id, title) for the given tile.
-        file_path (str): Path to the .txt file where the data should be stored.
+        file_path (str): Path to the JSON file where the data should be stored.
     
     Returns:
         None
@@ -587,34 +752,34 @@ def writing_missing_products_2_file(tile, tuple_list, file_path):
     # Initialize an empty dictionary to hold the tile data
     tile_data = {}
 
-    # Read the existing file content (if it exists)
+    # Read the existing JSON file content (if it exists)
     try:
         with open(file_path, 'r') as file:
-            # Read the file and evaluate its content as a Python dictionary
-            content = file.read().strip()
-            if content:
-                tile_data = eval(content)  # Convert the string back to a dictionary
+            tile_data = json.load(file)  # Load the JSON content as a dictionary
     except FileNotFoundError:
         # If the file doesn't exist, start with an empty dictionary
         pass
-    except SyntaxError:
+    except json.JSONDecodeError:
         # If the file is not properly formatted, start fresh
         pass
 
-    # If the tile already exists, append the new tuples to the existing list
+    # Ensure all tuples in the input are unique
+    tuple_list = list(set(tuple_list))
+    
+    # If the tile already exists, merge the new tuples with the existing ones
     if tile in tile_data:
+        # Convert existing and new tuples to sets to ensure uniqueness
         existing_tuples = tile_data[tile]
-        # Avoid duplicating tuples by using a set
-        updated_tuples = list(set(existing_tuples + tuple_list))
+        updated_tuples = list(set([tuple(t) for t in existing_tuples] + tuple_list))
         # Sort the list of tuples alphabetically by title (second element of each tuple)
         tile_data[tile] = sorted(updated_tuples, key=lambda x: x[1])
     else:
         # Sort the new list of tuples before adding
         tile_data[tile] = sorted(tuple_list, key=lambda x: x[1])
 
-    # Write the updated dictionary back to the .txt file
+    # Write the updated dictionary back to the JSON file
     with open(file_path, 'w') as file:
-        file.write(str(tile_data))  # Convert the dictionary to a string and write it
+        json.dump(tile_data, file, indent=4)  # Write the dictionary as a JSON file with formatting
 
     return
 
