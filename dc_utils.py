@@ -298,9 +298,10 @@ from transform import transform
 config_folder_path = os.path.join(neighboring_folder_path_safe_to_netcdf, 'config')
 sys.path.insert(0, config_folder_path)
 
-
+'''
 # Verify the config folder is in sys.path
 print(f"Added config folder to sys.path: {config_folder_path}")
+
 
 # List the files in the config folder to verify it is accessible
 if os.path.exists(config_folder_path) and os.path.isdir(config_folder_path):
@@ -310,21 +311,7 @@ if os.path.exists(config_folder_path) and os.path.isdir(config_folder_path):
         print(f"- {file_name}")
 else:
     print(f"Config folder does not exist or is not a directory: {config_folder_path}")
-
-
-# import utils
-# print(f"Using utils.py from: {utils.__file__}")
-
-# Add the neighboring folder 'cdse_synchroniser' to sys.path
-neighboring_folder_path_cdse_synchroniser = os.path.join(current_dir, '..', 'cdse_synchroniser')
-sys.path.insert(0, neighboring_folder_path_cdse_synchroniser)
-
-# Import both the `database` module and the `Database` class
-import lib.database as database
-from lib.database import Database
-
-# Print the path of the imported database module
-print(f"Using database.py from: {database.__file__}")
+#'''
 
 
 # def createNetCDFfromSAFE(product_file, product, nc_filepath, nc_file):
@@ -783,18 +770,45 @@ def writing_missing_products_2_file(tile, tuple_list, file_path):
 
     return
 
+# Does not exist anymore in CDSE_synchroniser master repo
+#from synchronise_on_demand import synchronise_on_demand
+
+# def SynchOnDemand(list_of_products,
+#                   # config, # might need to split this
+#                   config_platform, # Add the file paths of these to the config in datacubes_manager
+#                   config_mission,
+#                   config_general):
+     
+#     synchronise_on_demand(list_of_products, \
+#                   config_platform, # Add the file paths of these to the config in datacubes_manager \
+#                   config_mission, \
+#                   config_general)
+#     return
+    
+
+# Add the neighboring folder 'cdse_synchroniser' to sys.path
+neighboring_folder_path_cdse_synchroniser = os.path.join(current_dir, '..', 'cdse_synchroniser')
+sys.path.insert(0, neighboring_folder_path_cdse_synchroniser)
+
+# Import both the `database` module and the `Database` class
+import lib.database as database
+from lib.database import Database
+
+# Print the path of the imported database module
+print(f"Using database.py from: {database.__file__}")
 
 from synchronise_on_demand import synchronise_on_demand
+from synchronise import Product_List
 
-def SynchOnDemand(list_of_products,
-                  # config, # might need to split this
-                  config_platform, # Add the file paths of these to the config in datacubes_manager
-                  config_mission,
-                  config_general):
-     
-    synchronise_on_demand(list_of_products, \
-                  config_platform, # Add the file paths of these to the config in datacubes_manager \
-                  config_mission, \
-                  config_general)
+def SynchOnDemand(
+        list_of_products, # list of tuples [(id, product_name), (id, product_name)...]
+        config_platform, # Add the file paths of these to the config in datacubes_manager
+        config_mission,
+        config_general):
+
+    #products2download = Product_List(list_of_products, database, config)
+
+    synchronise_on_demand(list_of_products, config_platform, config_mission, config_general)
+
+
     return
-    

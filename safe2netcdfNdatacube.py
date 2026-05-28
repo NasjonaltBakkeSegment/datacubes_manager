@@ -159,7 +159,7 @@ for tile in tiles:
         print(f'There are {len(only_in_lustre)} products missing fromthe CDSE-query.')
         '''
 
-        '''
+        #'''
         if len(only_in_query) > 0:
             # Install the missing products on lustre from CDSE
             SynchOnDemand(list_of_products = only_in_query,
@@ -175,7 +175,7 @@ for tile in tiles:
         /home/nbs/production_r8/safe_to_netcdf/create_netcdf_for_datacubes.sh
         '''
 
-
+        #'''
         checkNcreate_netcdfNdatacubes(products = desired_safe_files, 
                                     path2safe_catalog = path2safe_catalog, 
                                     path2dedicated_datacubes_on_demand = path2dedicated_datacubes_on_demand, 
@@ -190,7 +190,7 @@ for tile in tiles:
                                     path2second_chance_netcdf = path2netcdf_stored_in_production,
                                     error_log_path = error_log_path,
                                     )
-        
+        # '''
 
 print('The complete list of SAFE products missing on lustre for this run:')
 print(len(complete_list_only_in_query), complete_list_only_in_query)
