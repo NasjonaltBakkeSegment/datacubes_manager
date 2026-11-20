@@ -14,11 +14,17 @@ from dc_utils import get_script_root_path,\
                      queryCDSE4products_based_on_tile_and_product_level, \
                      filter_products_by_latest_publication_date, \
                      filter_tuples_by_titles, \
-                     SynchOnDemand
+                     SynchOnDemand, \
+                     _product_stem, \
+                     wait_for_downloaded_products, \
+                     find_safe_catalog_directories, \
+                     safe_catalog_directory_for_product, \
+                     DownloadProductsTimeoutError
                   
 
 
 import os
+from datetime import datetime
 
 # Get the root path to the current directory
 root_path = get_script_root_path()
@@ -45,6 +51,65 @@ error_log_path = config['error_log_path']
 config_platform_path = config['config_platform_path']
 config_mission_path = config['config_mission_path']
 config_general_path = config['config_general_path']
+datacube_interval_start = config.get('datacube_interval_start', '01/01')
+datacube_interval_end = config.get('datacube_interval_end', '12/31')
+datacube_mode = config.get('datacube_mode', 'recurring')
+download_timeout_seconds = int(config.get('download_timeout_seconds', 3600))
+download_poll_seconds = int(config.get('download_poll_seconds', 30))
+download_stability_polls = int(config.get('download_stability_polls', 2))
+
+
+def build_datacube_periods(
+    requested_start,
+    requested_end,
+    interval_start,
+    interval_end,
+    mode='recurring',
+):
+    """Create either one full-range or recurring calendar datacube interval."""
+    requested_start_date = datetime.strptime(requested_start, '%Y/%m/%d')
+    requested_end_date = datetime.strptime(requested_end, '%Y/%m/%d')
+
+    if mode == 'single':
+        return [(
+            f'{requested_start_date:%Y%m%d}_{requested_end_date:%Y%m%d}',
+            requested_start,
+            requested_end,
+            generate_date_range(
+                start_date=requested_start,
+                end_date=requested_end,
+            ),
+        )]
+    if mode != 'recurring':
+        raise ValueError(
+            f"Unsupported datacube_mode '{mode}'. Use 'single' or 'recurring'."
+        )
+
+    interval_start_month, interval_start_day = map(int, interval_start.split('/'))
+    interval_end_month, interval_end_day = map(int, interval_end.split('/'))
+
+    periods = []
+    for year in range(requested_start_date.year, requested_end_date.year + 1):
+        period_start_date = datetime(year, interval_start_month, interval_start_day)
+        period_end_year = year + int(
+            (period_start_date.month, period_start_date.day)
+            > (interval_end_month, interval_end_day)
+        )
+        period_end_date = datetime(period_end_year, interval_end_month, interval_end_day)
+
+        clipped_start = max(period_start_date, requested_start_date)
+        clipped_end = min(period_end_date, requested_end_date)
+        if clipped_start <= clipped_end:
+            period_start = clipped_start.strftime('%Y/%m/%d')
+            period_end = clipped_end.strftime('%Y/%m/%d')
+            periods.append((
+                f'{clipped_start:%Y%m%d}_{clipped_end:%Y%m%d}',
+                period_start,
+                period_end,
+                generate_date_range(start_date=period_start, end_date=period_end),
+            ))
+
+    return periods
 
 complete_list_only_in_query = []
 # Ensure that tiles is a list that can be run through
@@ -65,30 +130,31 @@ for tile in tiles:
     #     safe_files.append(full_path)
 
 
-    # To separate each datacube by year the given date range is also devided by years
-    import numpy as np
-    yearly_list = np.arange(int(date_range[0][:4]), int(date_range[-1][:4])+1)
-    print(f'Years for which datacubes are created:')
-    print(yearly_list)
-    for year in yearly_list:
+    periods = build_datacube_periods(
+        requested_start=start_time,
+        requested_end=end_time,
+        interval_start=datacube_interval_start,
+        interval_end=datacube_interval_end,
+        mode=datacube_mode,
+    )
+    if datacube_mode == 'single':
+        print('Creating one datacube for the complete requested date range.')
+    else:
+        print(
+            f'Creating datacubes for recurring intervals '
+            f'{datacube_interval_start} to {datacube_interval_end}.'
+        )
 
-        yearly_date_range = generate_date_range(start_date = f'{year}/{start_time[5:]}', end_date = f'{year}/{end_time[5:]}')
-        print(f'start_date = {yearly_date_range[0]}')
-        print(f'end_date = {yearly_date_range[-1]}')
+    for period_label, period_start, period_end, period_date_range in periods:
+        print(f'start_date = {period_date_range[0]}')
+        print(f'end_date = {period_date_range[-1]}')
         
         # Run through all possible safe files for product_type* (e.g. S2*) products within the date range
-        safe_files = []
-        # for dates in date_range:
-        for dates in yearly_date_range:
-            # List all directories in the parent directory
-            parent_path = os.path.join(path2safe_catalog)
-            for folder in os.listdir(parent_path):
-                # Check if the folder starts with the value of `product_type` and is a directory
-                if folder.startswith(product_type) and os.path.isdir(os.path.join(parent_path, folder, dates)):
-                    full_path = os.path.join(parent_path, folder, dates)
-                    safe_files.append(full_path)
-
-
+        safe_files = find_safe_catalog_directories(
+            path2safe_catalog=path2safe_catalog,
+            product_type=product_type,
+            date_range=period_date_range,
+        )
         # print(safe_files)
         # print('\n')
 
@@ -100,7 +166,8 @@ for tile in tiles:
         desired_safe_files.sort()
 
         # print(desired_safe_files[:5])
-        print(f'Number of SAFE files found {len(desired_safe_files)} on our system for {product_level} {tile} in {year}.')
+        period_description = f'{period_start} to {period_end}'
+        print(f'Number of SAFE files found {len(desired_safe_files)} on our system for {product_level} {tile} in {period_description}.')
         print('\n')
         
 
@@ -115,7 +182,7 @@ for tile in tiles:
         '''
 
         # Query CDSE for tile spesific products and compare against SAFE files on Satellittdata.no
-        SAFE_query_results = queryCDSE4products_based_on_tile_and_product_level(date_from = f'{year}/{start_time[5:]}', date_to = f'{year}/{end_time[5:]}', tile_id = tile_id, product_level = product_level) 
+        SAFE_query_results = queryCDSE4products_based_on_tile_and_product_level(date_from = period_start, date_to = period_end, tile_id = tile_id, product_level = product_level)
         SAFE_files_on_lustre = []
         for file in desired_safe_files:
             filename = file.split('/')[-1]
@@ -134,7 +201,7 @@ for tile in tiles:
                                                 #tuple_list = filtered_SAFE_query_results, 
                                                 title_list = SAFE_files_on_lustre)
 
-        print(f'{year} {product_level} {tile} products that only appear from querying CDSE - not on lustre:')
+        print(f'{period_description} {product_level} {tile} products that only appear from querying CDSE - not on lustre:')
         if len(only_in_query) == 0:
             print('No products missing from lustre!')
         else:
@@ -150,7 +217,7 @@ for tile in tiles:
         #only_in_lustre = [item.replace('.zip','') for item in SAFE_files_on_lustre if item.replace('.zip','.SAFE') not in SAFE_query_results]
 
         '''
-        print(f'{year} {product_level} {tile} products that only appear on lustre - not in CDSE-query:')
+        print(f'{period_description} {product_level} {tile} products that only appear on lustre - not in CDSE-query:')
         if len(only_in_lustre) == 0:
             print('No products missing from the query!')
         else: 
@@ -160,14 +227,73 @@ for tile in tiles:
         '''
 
         #'''
-        if len(only_in_query) > 0:
-            # Install the missing products on lustre from CDSE
+        if only_in_query:
+            # Install the missing SAFE products on lustre from CDSE
             SynchOnDemand(list_of_products = only_in_query,
                         config_platform = config_platform_path,
                         config_mission = config_mission_path,
                         config_general = config_general_path)
+
             # list_of_products = list of tuples [(id, product_name), (id, product_name)...]
         #'''
+
+        if only_in_query:
+            expected_download_directories = {
+                safe_catalog_directory_for_product(path2safe_catalog, product[1])
+                for product in only_in_query
+            }
+            try:
+                wait_for_downloaded_products(
+                    expected_products=only_in_query,
+                    search_directories=expected_download_directories,
+                    timeout_seconds=download_timeout_seconds,
+                    poll_seconds=download_poll_seconds,
+                    stability_polls=download_stability_polls,
+                )
+            except DownloadProductsTimeoutError as error:
+                print(
+                    f'Post-sync checker: {len(error.missing_products)} '
+                    'product(s) are missing or incomplete:'
+                )
+                for product_status in error.missing_products:
+                    print(f'  - {product_status}')
+                raise
+            print(
+                f'Post-sync checker passed: all {len(only_in_query)} '
+                'product(s) submitted for synchronization are present, '
+                'stable, and valid.'
+            )
+
+        # The initial scan predates synchronization; discover all products
+        # before handing the list to the NetCDF conversion step.
+        safe_files = find_safe_catalog_directories(
+            path2safe_catalog=path2safe_catalog,
+            product_type=product_type,
+            date_range=period_date_range,
+        )
+        desired_safe_files = find_safe_files_from_given_tileNproductlevel_within_time_interval(
+            directories=safe_files,
+            search_string_tile=tile,
+            search_string_productlevel=product_level,
+        )
+        desired_safe_files.sort()
+        expected_names = {_product_stem(product[1]) for product in only_in_query}
+        discovered_names = {
+            _product_stem(product_path) for product_path in desired_safe_files
+        }
+        missing_after_rescan = sorted(expected_names - discovered_names)
+        print(
+            f'Post-sync catalog rescan: {len(missing_after_rescan)} of '
+            f'{len(expected_names)} synchronized product(s) are still missing.'
+        )
+        if missing_after_rescan:
+            for product_name in missing_after_rescan:
+                print(f'  - {product_name}')
+        if missing_after_rescan:
+            raise RuntimeError(
+                'Downloaded products were not found in the expected SAFE '
+                f'catalog directories: {missing_after_rescan}'
+            )
         
         '''
         Create netCDF files from the SAFE files 
@@ -175,8 +301,10 @@ for tile in tiles:
         /home/nbs/production_r8/safe_to_netcdf/create_netcdf_for_datacubes.sh
         '''
 
-        #'''
-        checkNcreate_netcdfNdatacubes(products = desired_safe_files, 
+        # '''
+        checkNcreate_netcdfNdatacubes(
+                                    #products = only_in_query, # just the safe file lacking on lustre
+                                    products = desired_safe_files, # all safe files within the datacube
                                     path2safe_catalog = path2safe_catalog, 
                                     path2dedicated_datacubes_on_demand = path2dedicated_datacubes_on_demand, 
                                     path2safe_to_netcdf = path2safe_to_netcdf, 
@@ -184,14 +312,14 @@ for tile in tiles:
                                     root_path = root_path,
                                     # start_sensing_date = start_time,
                                     # end_sensing_date = end_time,
-                                    start_sensing_date = f'{year}/{start_time[5:]}',
-                                    end_sensing_date = f'{year}/{end_time[5:]}',
+                                    start_sensing_date = period_start,
+                                    end_sensing_date = period_end,
                                     product_type = product_type,
                                     path2second_chance_netcdf = path2netcdf_stored_in_production,
                                     error_log_path = error_log_path,
+                                    datacube_filename=f'{product_type}_{product_level}_{tile}_{period_label}.ncml',
                                     )
         # '''
 
 print('The complete list of SAFE products missing on lustre for this run:')
 print(len(complete_list_only_in_query), complete_list_only_in_query)
-

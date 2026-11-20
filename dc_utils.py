@@ -1,4 +1,7 @@
 import os
+import time
+import zipfile
+from pathlib import Path
 
 def get_script_root_path():
     # Get the absolute path of the script and then extract the directory
@@ -226,6 +229,155 @@ def find_safe_files_from_given_tileNproductlevel_within_time_interval(directorie
     return matching_file_paths
 
 
+def _product_stem(product_name):
+    """Return a product name without its SAFE or ZIP extension."""
+    name = Path(product_name).name
+    for suffix in ('.zip', '.SAFE'):
+        if name.lower().endswith(suffix.lower()):
+            name = name[:-len(suffix)]
+    return name
+
+
+def safe_catalog_directory_for_product(path2safe_catalog, product_name):
+    """Return a product's catalog directory using its sensing date."""
+    product_parts = Path(product_name).name.split('_')
+    if len(product_parts) < 3 or len(product_parts[2]) < 8:
+        raise ValueError(f'Cannot determine sensing date from product name: {product_name}')
+
+    sensing_date = datetime.strptime(product_parts[2][:8], '%Y%m%d')
+    return (
+        Path(path2safe_catalog)
+        / product_parts[0]
+        / sensing_date.strftime('%Y')
+        / sensing_date.strftime('%m')
+        / sensing_date.strftime('%d')
+    )
+
+
+def _validate_product_zip(product_path):
+    """Check ZIP structure without re-reading every product payload."""
+    try:
+        with zipfile.ZipFile(product_path) as archive:
+            if not archive.infolist():
+                return False, 'ZIP archive contains no entries'
+    except (OSError, EOFError, RuntimeError, zipfile.BadZipFile) as error:
+        return False, str(error)
+
+    return True, None
+
+
+class DownloadProductsTimeoutError(TimeoutError):
+    """Timeout carrying the product names and readiness problems."""
+
+    def __init__(self, missing_products):
+        self.missing_products = missing_products
+        super().__init__(
+            'Timed out waiting for downloaded products to become ready: '
+            f'{missing_products}'
+        )
+
+
+def wait_for_downloaded_products(
+    expected_products,
+    search_directories,
+    timeout_seconds=3600,
+    poll_seconds=30,
+    stability_polls=2,
+):
+    """Wait until every expected product is present, stable, and a valid ZIP."""
+    expected_names = {_product_stem(product[1]) for product in expected_products}
+    if not expected_names:
+        return
+    if stability_polls < 1:
+        raise ValueError('stability_polls must be at least 1')
+
+    deadline = time.monotonic() + timeout_seconds
+    previous_sizes = {}
+    stable_polls = {}
+    validation_cache = {}
+    validation_errors = {}
+
+    while True:
+        candidate_paths = (
+            path
+            for directory in search_directories
+            if os.path.isdir(directory)
+            for path in Path(directory).rglob('*')
+        )
+        zip_paths = [
+            path for path in candidate_paths
+            if path.is_file() and path.suffix.lower() == '.zip'
+        ]
+
+        current_sizes = {}
+        paths_by_name = {}
+        for path in zip_paths:
+            try:
+                stat = path.stat()
+                if stat.st_size > 0:
+                    name = _product_stem(path.name)
+                    current_sizes[name] = (
+                        str(path),
+                        stat.st_size,
+                        stat.st_mtime_ns,
+                    )
+                    paths_by_name[name] = path
+            except OSError:
+                continue
+        for name, fingerprint in current_sizes.items():
+            if previous_sizes.get(name) == fingerprint:
+                stable_polls[name] = stable_polls.get(name, 1) + 1
+            else:
+                stable_polls[name] = 1
+        previous_sizes = current_sizes
+
+        ready_and_stable = set()
+        for name, fingerprint in current_sizes.items():
+            if stable_polls.get(name, 0) < stability_polls:
+                continue
+            cached_validation = validation_cache.get(name)
+            if cached_validation is None or cached_validation[0] != fingerprint:
+                is_valid, error = _validate_product_zip(paths_by_name[name])
+                validation_cache[name] = (fingerprint, is_valid)
+                if error is None:
+                    validation_errors.pop(name, None)
+                else:
+                    validation_errors[name] = error
+            else:
+                is_valid = cached_validation[1]
+            if is_valid:
+                ready_and_stable.add(name)
+
+        missing_or_incomplete = expected_names - ready_and_stable
+        if not missing_or_incomplete:
+            return
+        print('\n', missing_or_incomplete, '\n')
+        if time.monotonic() >= deadline:
+            missing = []
+            for name in sorted(missing_or_incomplete):
+                error = validation_errors.get(name)
+                if error:
+                    missing.append(f'{name} ({error})')
+                elif name not in current_sizes:
+                    missing.append(f'{name} (not found)')
+                else:
+                    missing.append(f'{name} (not stable)')
+            raise DownloadProductsTimeoutError(missing)
+        time.sleep(poll_seconds)
+
+
+def find_safe_catalog_directories(path2safe_catalog, product_type, date_range):
+    """Find product/date directories in the SAFE catalog."""
+    safe_directories = []
+    for date in date_range:
+        for folder in os.listdir(path2safe_catalog):
+            folder_path = Path(path2safe_catalog) / folder
+            date_path = folder_path / date
+            if folder.startswith(product_type) and date_path.is_dir():
+                safe_directories.append(str(date_path))
+    return safe_directories
+
+
 import xarray as xr
 
 def check_ds4certain_variable(path2nc, variable):
@@ -359,7 +511,7 @@ def createNetCDFfromSAFE(product_file, product, nc_file):
     return
 
 
-def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_datacubes_on_demand, path2safe_to_netcdf, netcdf_creator_file, root_path, product_type, start_sensing_date, end_sensing_date, path2second_chance_netcdf, error_log_path):
+def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_datacubes_on_demand, path2safe_to_netcdf, netcdf_creator_file, root_path, product_type, start_sensing_date, end_sensing_date, path2second_chance_netcdf, error_log_path, datacube_filename=None):
 
     # Counters
     found = 0
@@ -409,7 +561,13 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
         nc_file = Path(nc_filepath) / nc_product
 
-        second_chance_nc_file = Path(path2second_chance_netcdf) / platform / year / month / day / nc_product
+        second_chance_nc_file_path = Path(path2second_chance_netcdf) / platform / year / month / day
+
+        if not os.path.exists(second_chance_nc_file_path) or not os.path.isdir(second_chance_nc_file_path):
+                    # print(f"The directory '{nc_filepath}' does not exist. Creating it...")
+                    os.makedirs(second_chance_nc_file_path)  # Create the directory
+
+        second_chance_nc_file = Path(second_chance_nc_file_path) / nc_product
 
 
         # path2safe_to_netcdf = "/home/josteines/src/NBS/safe_to_netcdf"
@@ -435,50 +593,43 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
             # Variable to check
             variable2check = 'cloud_coverage'
-            
-            if nc_file.is_file():
 
-                try:
-                
-                    if check_ds4certain_variable(path2nc=nc_file, variable=variable2check) == True:
-                        # print(f'{nc_file} exists and does have {variable2check} as a variable! Moving on.')
-                        pass
+            try:
+                if second_chance_nc_file.is_file():
+                    if check_ds4certain_variable(
+                        path2nc=second_chance_nc_file, variable=variable2check
+                    ):
+                        paths2each_single_ncfile_within_a_datacube.append(
+                            str(second_chance_nc_file)
+                        )
                     else:
-                        createNetCDFfromSAFE(product_file = product_file,
-                                            product = product, 
-                                        # nc_filepath = nc_filepath, 
-                                            nc_file = nc_file,
-                                        )
+                        createNetCDFfromSAFE(
+                            product_file=product_file,
+                            product=product,
+                            nc_file=second_chance_nc_file,
+                        )
                         found_but_no_nc += 1
-
-                    # Keep all nc paths in a list 
+                        paths2each_single_ncfile_within_a_datacube.append(
+                            str(second_chance_nc_file)
+                        )
+                elif nc_file.is_file() and check_ds4certain_variable(
+                    path2nc=nc_file, variable=variable2check
+                ):
                     paths2each_single_ncfile_within_a_datacube.append(str(nc_file))
-
-                except Exception as e:
-                    # If an exception occurs, log the product and the error message
-                    error_log[product] = str(e)
-                    failed += 1
-
-
-            elif not nc_file.is_file():
-
-                try:
-            
-                    createNetCDFfromSAFE(product_file = product_file,
-                                              product = product, 
-                                        # nc_filepath = nc_filepath, 
-                                              nc_file = nc_file,
-                                    )
+                else:
+                    createNetCDFfromSAFE(
+                        product_file=product_file,
+                        product=product,
+                        nc_file=nc_file,
+                    )
                     found_but_no_nc += 1
-
-                    # Keep all nc paths in a list 
                     paths2each_single_ncfile_within_a_datacube.append(str(nc_file))
 
-                except Exception as e:
-                    # If an exception occurs, log the product and the error message
-                    error_log[product] = str(e)
-                    print(f'Failed to write {product_file}to NetCDF: {error_log[product]}, \n')
-                    failed +=1
+            except Exception as e:
+                # If an exception occurs, log the product and the error message
+                error_log[product] = str(e)
+                print(f'Failed to write {product_file}to NetCDF: {error_log[product]}, \n')
+                failed += 1
 
 
             # As there is created more than planned (.SAFE folders with content) - remove these for now:
@@ -517,7 +668,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
     # path to datacubes on demand where nc products and datacubes are saved under product level and tile
     # path2dedicated_datacubes_on_demand = Path(path2dedicated_datacubes_on_demand) # = /lustre/storeB/project/NBS2/sentinel/production/NorwAREA/NetCDF-ondemand-products/datacubes
-    path2dedicated_datacubes_on_demand = Path(path2dedicated_datacubes_on_demand) / product_level / tile
+    path2dedicated_datacube_tile_on_demand = Path(path2dedicated_datacubes_on_demand) / product_level / tile
 
 
     # p = Path(path2dedicated_datacubes_on_demand)
@@ -529,8 +680,9 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
     # 1. Loop through all .nc files in base_path
     nc_files = glob.glob(os.path.join(nc_filepath, "*.nc"))
-    print('nc_files = ')
-    print(len(nc_files))
+    rolling_archive_nc_files = glob.glob(os.path.join(nc_filepath, "*.nc"))
+    print('nc_files + nc_files in rolling archive = ')
+    print(len(nc_files)+len(rolling_archive_nc_files))
     print('paths2each_single_ncfile_within_a_datacube = ')
     print(len(paths2each_single_ncfile_within_a_datacube))
 
@@ -541,7 +693,7 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
     print(f'The date_str_start = {date_str_start} and the date_end_str = {date_str_end} for the current datacube.')
 
-    path2spesific_datacubes_folder = Path(path2dedicated_datacubes_on_demand) / 'datacubes'
+    path2spesific_datacubes_folder = Path(path2dedicated_datacube_tile_on_demand) / 'datacubes'
 
     # Create datacubes folder if not excisting
     if not os.path.exists(path2spesific_datacubes_folder) or not os.path.isdir(path2spesific_datacubes_folder):
@@ -553,7 +705,8 @@ def checkNcreate_netcdfNdatacubes(products, path2safe_catalog, path2dedicated_da
 
     # 3. Create filepath for datacube (base_path/S2_L2A_T32VNM_YEAR.ncml)
     #datacube_filename = f"{product_type}_{product_level}_{tile}_{date_str_start}_{date_str_end}.ncml"
-    datacube_filename = f"{product_type}_{product_level}_{tile}_{date_str_start[:4]}.ncml"
+    if datacube_filename is None:
+        datacube_filename = f"{product_type}_{product_level}_{tile}_{date_str_start[:4]}.ncml"
     datacube_filepath = os.path.join(path2spesific_datacubes_folder, datacube_filename)
     print(datacube_filepath)
 
@@ -655,15 +808,12 @@ def filter_tuples_by_titles(tuple_list, title_list):
         Returns:
             list of tuples: A list of tuples where the title matches the title list, stripped of its extension.
         """
-        # Helper function to remove the file extension
-        def strip_extension(title):
-            return title.split('.', 1)[0]  # Split by the last '.' and take the base name
-
-        # Normalize the title list by stripping the ".zip" extension
-        normalized_titles = [strip_extension(title) for title in title_list]
-
-        # Filter the tuples, normalize their titles, and remove extensions in the final result
-        filtered_list = [(id_, title) for id_, title in tuple_list if strip_extension(title) not in normalized_titles]
+        normalized_titles = {_product_stem(title) for title in title_list}
+        filtered_list = [
+            (id_, title)
+            for id_, title in tuple_list
+            if _product_stem(title) not in normalized_titles
+        ]
 
         return filtered_list
 
